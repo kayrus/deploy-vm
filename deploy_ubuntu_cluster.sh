@@ -18,7 +18,7 @@ fi
 
 LIBVIRT_UBUNTU=/var/lib/libvirt/images/ubuntu
 #CHANNEL=trusty
-CHANNEL=xenial
+CHANNEL=wily
 RELEASE=current
 RAM=512
 CPUs=1
