@@ -1,0 +1,36 @@
+#cloud-config
+
+# echo -n "password" | openssl passwd -1 -stdin
+users:
+  - name: "core"
+    passwd: "$1$IwCGyS.S$0i4B7NAqeSYv78VzHJfc7."
+
+ssh_authorized_keys:
+ - %ssh_key%
+hostname: %HOSTNAME%
+coreos:
+  units:
+    - name: systemd-networkd.service
+      command: restart
+    - name: etcd2.service
+      command: start
+    - name: fleet.service
+      command: start
+#    - name: flanneld.service
+#      drop-ins:
+#        - name: 50-network-config.conf
+#          content: |
+#            [Service]
+#            ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "10.1.0.0/16", "Backend": {"Type": "vxlan"}}'
+#      command: start
+  etcd2:
+    advertise-client-urls: http://%H:2379
+    initial-advertise-peer-urls: http://%H:2380
+    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
+    listen-peer-urls: http://0.0.0.0:2380
+    discovery: %DISCOVERY%
+  fleet:
+    public-ip: %HOSTNAME%
+    metadata: "hostname=%HOSTNAME%"
+  update:
+    reboot-strategy: off
