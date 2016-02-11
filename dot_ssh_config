@@ -1,0 +1,22 @@
+Host coreos?
+  User core
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.coreos
+  # used by fleet
+  ForwardAgent yes
+  UseRoaming no
+
+Host k8s-*
+  User core
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.k8s
+  UseRoaming no
+
+Host ubuntu?
+  User ubuntu
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.ubuntu
+  UseRoaming no
