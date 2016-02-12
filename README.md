@@ -35,3 +35,20 @@ Completely destroy and remove all related VMs cluster data (works with all destr
 ```sh
 sudo ./destroy_coreos_cluster.sh
 ```
+
+## VMs notes
+
+### CoreOS
+
+Should be run using docker as there is no go binary
+
+### Ubuntu
+
+You have to install these packages inside (Ubuntu 16.04 Xenial is only supported):
+
+```sh
+apt-get update
+apt-get install -y golang-go etcd machinectl
+```
+
+### CentOS
