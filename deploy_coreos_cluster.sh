@@ -39,10 +39,11 @@ else
   print_green "Will use this path to SSH public key: $PUB_KEY_PATH"
 fi
 
+OS_NAME="coreos"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
-LIBVIRT_PATH=/var/lib/libvirt/images/coreos
+IMG_PATH=/var/lib/libvirt/images/${OS_NAME}
 RANDOM_PASS=$(openssl rand -base64 12)
 USER_DATA_TEMPLATE=${CDIR}/user_data
 ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$1")
@@ -55,9 +56,10 @@ RELEASE=current
 RAM=512
 CPUs=1
 IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
+IMG_URL="http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
 
-if [ ! -d $LIBVIRT_PATH ]; then
-  mkdir -p $LIBVIRT_PATH || (echo "Can not create $LIBVIRT_PATH directory" && exit 1)
+if [ ! -d $IMG_PATH ]; then
+  mkdir -p $IMG_PATH || (echo "Can not create $IMG_PATH directory" && exit 1)
 fi
 
 if [ ! -f $USER_DATA_TEMPLATE ]; then
@@ -66,46 +68,46 @@ if [ ! -f $USER_DATA_TEMPLATE ]; then
 fi
 
 for SEQ in $(seq 1 $1); do
-  COREOS_HOSTNAME="coreos$SEQ"
+  VM_HOSTNAME="${OS_NAME}${SEQ}"
   if [ -z $FIRST_HOST ]; then
-    FIRST_HOST=$COREOS_HOSTNAME
+    FIRST_HOST=$VM_HOSTNAME
   fi
 
-  if [ ! -d $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest ]; then
-    mkdir -p $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest || (echo "Can not create $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest directory" && exit 1)
+  if [ ! -d $IMG_PATH/$VM_HOSTNAME/openstack/latest ]; then
+    mkdir -p $IMG_PATH/$VM_HOSTNAME/openstack/latest || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1)
   fi
 
-  if [ ! -f $LIBVIRT_PATH/$IMG_NAME ]; then
-    wget http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2 -O - | bzcat > $LIBVIRT_PATH/$IMG_NAME || (rm -f $LIBVIRT_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
+  if [ ! -f $IMG_PATH/$IMG_NAME ]; then
+    wget $IMG_URL -O - | bzcat > $IMG_PATH/$IMG_NAME || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
   fi
 
-  if [ ! -f $LIBVIRT_PATH/$COREOS_HOSTNAME.qcow2 ]; then
-    qemu-img create -f qcow2 -b $LIBVIRT_PATH/$IMG_NAME $LIBVIRT_PATH/$COREOS_HOSTNAME.qcow2
+  if [ ! -f $IMG_PATH/$VM_HOSTNAME.qcow2 ]; then
+    qemu-img create -f qcow2 -b $IMG_PATH/$IMG_NAME $IMG_PATH/$VM_HOSTNAME.qcow2
   fi
 
   sed "s#%PUB_KEY%#$PUB_KEY#g;\
-       s#%HOSTNAME%#$COREOS_HOSTNAME#g;\
+       s#%HOSTNAME%#$VM_HOSTNAME#g;\
        s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
        s#%RANDOM_PASS%#$RANDOM_PASS#g;\
-       s#%FIRST_HOST%#$FIRST_HOST#g" $USER_DATA_TEMPLATE > $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest/user_data
+       s#%FIRST_HOST%#$FIRST_HOST#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
 
   if [[ selinuxenabled ]]; then
     echo "Making SELinux configuration"
-    semanage fcontext -d -t virt_content_t "$LIBVIRT_PATH/$COREOS_HOSTNAME(/.*)?" || true
-    semanage fcontext -a -t virt_content_t "$LIBVIRT_PATH/$COREOS_HOSTNAME(/.*)?"
-    restorecon -R "$LIBVIRT_PATH"
+    semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
+    semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
+    restorecon -R "$IMG_PATH"
   fi
 
   virt-install \
     --connect qemu:///system \
     --import \
-    --name $COREOS_HOSTNAME \
+    --name $VM_HOSTNAME \
     --ram $RAM \
     --vcpus $CPUs \
     --os-type=linux \
     --os-variant=virtio26 \
-    --disk path=$LIBVIRT_PATH/$COREOS_HOSTNAME.qcow2,format=qcow2,bus=virtio \
-    --filesystem $LIBVIRT_PATH/$COREOS_HOSTNAME/,config-2,type=mount,mode=squash \
+    --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
+    --filesystem $IMG_PATH/$VM_HOSTNAME/,config-2,type=mount,mode=squash \
     --vnc \
     --noautoconsole
 done

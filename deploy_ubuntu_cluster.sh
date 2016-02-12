@@ -39,10 +39,11 @@ else
   print_green "Will use this path to SSH public key: $PUB_KEY_PATH"
 fi
 
+OS_NAME="ubuntu"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
-LIBVIRT_UBUNTU=/var/lib/libvirt/images/ubuntu
+IMG_PATH=/var/lib/libvirt/images/${OS_NAME}
 #CHANNEL=trusty
 CHANNEL=vivid
 CHANNEL=wily
@@ -50,9 +51,10 @@ RELEASE=current
 RAM=512
 CPUs=1
 IMG_NAME="ubuntu_${CHANNEL}_${RELEASE}_qemu_image.img"
+IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
 
-if [ ! -d $LIBVIRT_UBUNTU ]; then
-  mkdir -p $LIBVIRT_UBUNTU || (echo "Can not create $LIBVIRT_UBUNTU directory" && exit 1)
+if [ ! -d $IMG_PATH ]; then
+  mkdir -p $IMG_PATH || (echo "Can not create $IMG_PATH directory" && exit 1)
 fi
 
 CC="#cloud-config
@@ -68,47 +70,47 @@ runcmd:
 "
 
 for SEQ in $(seq 1 $1); do
-  UBUNTU_HOSTNAME="ubuntu$SEQ"
+  VM_HOSTNAME="${OS_NAME}${SEQ}"
   if [ -z $FIRST_HOST ]; then
-    FIRST_HOST=$UBUNTU_HOSTNAME
+    FIRST_HOST=$VM_HOSTNAME
   fi
 
-  if [ ! -d $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME ]; then
-    mkdir -p $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME || (echo "Can not create $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME directory" && exit 1)
+  if [ ! -d $IMG_PATH/$VM_HOSTNAME ]; then
+    mkdir -p $IMG_PATH/$VM_HOSTNAME || (echo "Can not create $IMG_PATH/$VM_HOSTNAME directory" && exit 1)
   fi
 
-  if [ ! -f $LIBVIRT_UBUNTU/$IMG_NAME ]; then
-    wget https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img -O - > $LIBVIRT_UBUNTU/$IMG_NAME || (rm -f $LIBVIRT_UBUNTU/$IMG_NAME && echo "Failed to download image" && exit 1)
+  if [ ! -f $IMG_PATH/$IMG_NAME ]; then
+    wget $IMG_URL -O - > $IMG_PATH/$IMG_NAME || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
   fi
 
-  if [ ! -f $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME.qcow2 ]; then
-    qemu-img create -f qcow2 -b $LIBVIRT_UBUNTU/$IMG_NAME $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME.qcow2
+  if [ ! -f $IMG_PATH/$VM_HOSTNAME.qcow2 ]; then
+    qemu-img create -f qcow2 -b $IMG_PATH/$IMG_NAME $IMG_PATH/$VM_HOSTNAME.qcow2
   fi
 
-  echo "$CC" > $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME/user-data
-  echo -e "instance-id: iid-${UBUNTU_HOSTNAME}\nlocal-hostname: ${UBUNTU_HOSTNAME}" > $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME/meta-data
+  echo "$CC" > $IMG_PATH/$VM_HOSTNAME/user-data
+  echo -e "instance-id: iid-${VM_HOSTNAME}\nlocal-hostname: ${VM_HOSTNAME}\nhostname: ${VM_HOSTNAME}" > $IMG_PATH/$VM_HOSTNAME/meta-data
 
   genisoimage \
     -input-charset utf-8 \
-    -output $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME/cidata.iso \
+    -output $IMG_PATH/$VM_HOSTNAME/cidata.iso \
     -volid cidata \
     -joliet \
     -rock \
-    $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME/user-data \
-    $LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME/meta-data || (echo "Failed to create ISO images"; exit 1)
+    $IMG_PATH/$VM_HOSTNAME/user-data \
+    $IMG_PATH/$VM_HOSTNAME/meta-data || (echo "Failed to create ISO images"; exit 1)
 
   virt-install \
     --connect qemu:///system \
     --import \
-    --name $UBUNTU_HOSTNAME \
+    --name $VM_HOSTNAME \
     --ram $RAM \
     --vcpus $CPUs \
     --os-type=linux \
     --os-variant=virtio26 \
-    --disk path=$LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME.qcow2,format=qcow2,bus=virtio \
-    --disk path=$LIBVIRT_UBUNTU/$UBUNTU_HOSTNAME/cidata.iso,device=cdrom \
+    --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
+    --disk path=$IMG_PATH/$VM_HOSTNAME/cidata.iso,device=cdrom \
     --vnc \
     --noautoconsole
 done
 
-print_green "Use this command to connect to your cluster: 'ssh -i $PRIV_KEY_PATH ubuntu@$FIRST_HOST'"
+print_green "Use this command to connect to your cluster: 'ssh -i $PRIV_KEY_PATH ${OS_NAME}@$FIRST_HOST'"

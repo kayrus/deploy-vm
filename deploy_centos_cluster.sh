@@ -39,18 +39,20 @@ else
   print_green "Will use this path to SSH public key: $PUB_KEY_PATH"
 fi
 
+OS_NAME="centos"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
-LIBVIRT_CENTOS=/var/lib/libvirt/images/centos
+IMG_PATH=/var/lib/libvirt/images/${OS_NAME}
 RELEASE=6
 RELEASE=7
 RAM=512
 CPUs=1
 IMG_NAME="CentOS-${RELEASE}-x86_64-GenericCloud.img"
+IMG_URL="http://cloud.centos.org/centos/${RELEASE}/images/CentOS-${RELEASE}-x86_64-GenericCloud.qcow2.xz"
 
-if [ ! -d $LIBVIRT_CENTOS ]; then
-  mkdir -p $LIBVIRT_CENTOS || (echo "Can not create $LIBVIRT_CENTOS directory" && exit 1)
+if [ ! -d $IMG_PATH ]; then
+  mkdir -p $IMG_PATH || (echo "Can not create $IMG_PATH directory" && exit 1)
 fi
 
 CC="#cloud-config
@@ -68,47 +70,47 @@ runcmd:
 "
 
 for SEQ in $(seq 1 $1); do
-  CENTOS_HOSTNAME="centos$SEQ"
+  VM_HOSTNAME="${OS_NAME}${SEQ}"
   if [ -z $FIRST_HOST ]; then
-    FIRST_HOST=$CENTOS_HOSTNAME
+    FIRST_HOST=$VM_HOSTNAME
   fi
 
-  if [ ! -d $LIBVIRT_CENTOS/$CENTOS_HOSTNAME ]; then
-    mkdir -p $LIBVIRT_CENTOS/$CENTOS_HOSTNAME || (echo "Can not create $LIBVIRT_CENTOS/$CENTOS_HOSTNAME directory" && exit 1)
+  if [ ! -d $IMG_PATH/$VM_HOSTNAME ]; then
+    mkdir -p $IMG_PATH/$VM_HOSTNAME || (echo "Can not create $IMG_PATH/$VM_HOSTNAME directory" && exit 1)
   fi
 
-  if [ ! -f $LIBVIRT_CENTOS/$IMG_NAME ]; then
-    wget http://cloud.centos.org/centos/${RELEASE}/images/CentOS-${RELEASE}-x86_64-GenericCloud.qcow2.xz -O - | xzcat > $LIBVIRT_CENTOS/$IMG_NAME || (rm -f $LIBVIRT_CENTOS/$IMG_NAME && echo "Failed to download image" && exit 1)
+  if [ ! -f $IMG_PATH/$IMG_NAME ]; then
+    wget $IMG_URL -O - | xzcat > $IMG_PATH/$IMG_NAME || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
   fi
 
-  if [ ! -f $LIBVIRT_CENTOS/$CENTOS_HOSTNAME.qcow2 ]; then
-    qemu-img create -f qcow2 -b $LIBVIRT_CENTOS/$IMG_NAME $LIBVIRT_CENTOS/$CENTOS_HOSTNAME.qcow2
+  if [ ! -f $IMG_PATH/$VM_HOSTNAME.qcow2 ]; then
+    qemu-img create -f qcow2 -b $IMG_PATH/$IMG_NAME $IMG_PATH/$VM_HOSTNAME.qcow2
   fi
 
-  echo "$CC" > $LIBVIRT_CENTOS/$CENTOS_HOSTNAME/user-data
-  echo -e "instance-id: iid-${CENTOS_HOSTNAME}\nlocal-hostname: ${CENTOS_HOSTNAME}\nhostname: ${CENTOS_HOSTNAME}" > $LIBVIRT_CENTOS/$CENTOS_HOSTNAME/meta-data
+  echo "$CC" > $IMG_PATH/$VM_HOSTNAME/user-data
+  echo -e "instance-id: iid-${VM_HOSTNAME}\nlocal-hostname: ${VM_HOSTNAME}\nhostname: ${VM_HOSTNAME}" > $IMG_PATH/$VM_HOSTNAME/meta-data
 
   genisoimage \
     -input-charset utf-8 \
-    -output $LIBVIRT_CENTOS/$CENTOS_HOSTNAME/cidata.iso \
+    -output $IMG_PATH/$VM_HOSTNAME/cidata.iso \
     -volid cidata \
     -joliet \
     -rock \
-    $LIBVIRT_CENTOS/$CENTOS_HOSTNAME/user-data \
-    $LIBVIRT_CENTOS/$CENTOS_HOSTNAME/meta-data || (echo "Failed to create ISO images"; exit 1)
+    $IMG_PATH/$VM_HOSTNAME/user-data \
+    $IMG_PATH/$VM_HOSTNAME/meta-data || (echo "Failed to create ISO images"; exit 1)
 
   virt-install \
     --connect qemu:///system \
     --import \
-    --name $CENTOS_HOSTNAME \
+    --name $VM_HOSTNAME \
     --ram $RAM \
     --vcpus $CPUs \
     --os-type=linux \
     --os-variant=virtio26 \
-    --disk path=$LIBVIRT_CENTOS/$CENTOS_HOSTNAME.qcow2,format=qcow2,bus=virtio \
-    --disk path=$LIBVIRT_CENTOS/$CENTOS_HOSTNAME/cidata.iso,device=cdrom \
+    --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
+    --disk path=$IMG_PATH/$VM_HOSTNAME/cidata.iso,device=cdrom \
     --vnc \
     --noautoconsole
 done
 
-print_green "Use this command to connect to your cluster: 'ssh -i $PRIV_KEY_PATH centos@$FIRST_HOST'"
+print_green "Use this command to connect to your cluster: 'ssh -i $PRIV_KEY_PATH ${OS_NAME}@$FIRST_HOST'"

@@ -45,10 +45,11 @@ else
   print_green "Will use this path to SSH public key: $PUB_KEY_PATH"
 fi
 
+OS_NAME="coreos"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
-LIBVIRT_PATH=/var/lib/libvirt/images/coreos
+IMG_PATH=/var/lib/libvirt/images/${OS_NAME}
 RANDOM_PASS=$(openssl rand -base64 12)
 MASTER_USER_DATA_TEMPLATE=${CDIR}/k8s_master_user_data
 NODE_USER_DATA_TEMPLATE=${CDIR}/k8s_node_user_data
@@ -63,9 +64,10 @@ K8S_DOMAIN=skydns.local
 RAM=512
 CPUs=1
 IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
+IMG_URL="http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
 
-if [ ! -d $LIBVIRT_PATH ]; then
-  mkdir -p $LIBVIRT_PATH || (echo "Can not create $LIBVIRT_PATH directory" && exit 1)
+if [ ! -d $IMG_PATH ]; then
+  mkdir -p $IMG_PATH || (echo "Can not create $IMG_PATH directory" && exit 1)
 fi
 
 if [ ! -f $MASTER_USER_DATA_TEMPLATE ]; then
@@ -80,29 +82,29 @@ fi
 
 for SEQ in $(seq 1 $1); do
   if [ "$SEQ" == "1" ]; then
-    COREOS_HOSTNAME="k8s-master"
-    COREOS_MASTER_HOSTNAME=$COREOS_HOSTNAME
+    VM_HOSTNAME="k8s-master"
+    COREOS_MASTER_HOSTNAME=$VM_HOSTNAME
     USER_DATA_TEMPLATE=$MASTER_USER_DATA_TEMPLATE
   else
     NODE_SEQ=$[SEQ-1]
-    COREOS_HOSTNAME="k8s-node-$NODE_SEQ"
+    VM_HOSTNAME="k8s-node-$NODE_SEQ"
     USER_DATA_TEMPLATE=$NODE_USER_DATA_TEMPLATE
   fi
 
-  if [ ! -d $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest ]; then
-    mkdir -p $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest || (echo "Can not create $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest directory" && exit 1)
+  if [ ! -d $IMG_PATH/$VM_HOSTNAME/openstack/latest ]; then
+    mkdir -p $IMG_PATH/$VM_HOSTNAME/openstack/latest || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1)
   fi
 
-  if [ ! -f $LIBVIRT_PATH/$IMG_NAME ]; then
-    wget http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2 -O - | bzcat > $LIBVIRT_PATH/$IMG_NAME || (rm -f $LIBVIRT_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
+  if [ ! -f $IMG_PATH/$IMG_NAME ]; then
+    wget $IMG_URL -O - | bzcat > $IMG_PATH/$IMG_NAME || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
   fi
 
-  if [ ! -f $LIBVIRT_PATH/$COREOS_HOSTNAME.qcow2 ]; then
-    qemu-img create -f qcow2 -b $LIBVIRT_PATH/$IMG_NAME $LIBVIRT_PATH/$COREOS_HOSTNAME.qcow2
+  if [ ! -f $IMG_PATH/$VM_HOSTNAME.qcow2 ]; then
+    qemu-img create -f qcow2 -b $IMG_PATH/$IMG_NAME $IMG_PATH/$VM_HOSTNAME.qcow2
   fi
 
   sed "s#%PUB_KEY%#$PUB_KEY#g;\
-       s#%HOSTNAME%#$COREOS_HOSTNAME#g;\
+       s#%HOSTNAME%#$VM_HOSTNAME#g;\
        s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
        s#%RANDOM_PASS%#$RANDOM_PASS#g;\
        s#%MASTER_HOST%#$COREOS_MASTER_HOSTNAME#g;\
@@ -110,25 +112,25 @@ for SEQ in $(seq 1 $1); do
        s#%FLANNEL_TYPE%#$FLANNEL_TYPE#g;\
        s#%K8S_NET%#$K8S_NET#g;\
        s#%K8S_DNS%#$K8S_DNS#g;\
-       s#%K8S_DOMAIN%#$K8S_DOMAIN#g" $USER_DATA_TEMPLATE > $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest/user_data
+       s#%K8S_DOMAIN%#$K8S_DOMAIN#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
 
   if [[ selinuxenabled ]]; then
     echo "Making SELinux configuration"
-    semanage fcontext -d -t virt_content_t "$LIBVIRT_PATH/$COREOS_HOSTNAME(/.*)?" || true
-    semanage fcontext -a -t virt_content_t "$LIBVIRT_PATH/$COREOS_HOSTNAME(/.*)?"
-    restorecon -R "$LIBVIRT_PATH"
+    semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
+    semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
+    restorecon -R "$IMG_PATH"
   fi
 
   virt-install \
     --connect qemu:///system \
     --import \
-    --name $COREOS_HOSTNAME \
+    --name $VM_HOSTNAME \
     --ram $RAM \
     --vcpus $CPUs \
     --os-type=linux \
     --os-variant=virtio26 \
-    --disk path=$LIBVIRT_PATH/$COREOS_HOSTNAME.qcow2,format=qcow2,bus=virtio \
-    --filesystem $LIBVIRT_PATH/$COREOS_HOSTNAME/,config-2,type=mount,mode=squash \
+    --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
+    --filesystem $IMG_PATH/$VM_HOSTNAME/,config-2,type=mount,mode=squash \
     --vnc \
     --noautoconsole
 done
