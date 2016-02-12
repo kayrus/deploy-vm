@@ -6,7 +6,7 @@ users:
     passwd: "$1$IwCGyS.S$0i4B7NAqeSYv78VzHJfc7."
 
 ssh_authorized_keys:
- - %ssh_key%
+ - "%ssh_key%"
 hostname: %HOSTNAME%
 coreos:
   units:

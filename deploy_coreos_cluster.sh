@@ -26,7 +26,7 @@ CHANNEL=alpha
 RELEASE=current
 #RELEASE=899.1.0
 #RELEASE=681.2.0
-RAM=256
+RAM=512
 CPUs=1
 IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
 
@@ -61,6 +61,12 @@ for SEQ in $(seq 1 $1); do
        s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
        s#%RANDOM_PASS%#$RANDOM_PASS#g;\
        s#%FIRST_HOST%#$FIRST_HOST#g" $USER_DATA_TEMPLATE > $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest/user_data
+
+  if [[ selinuxenabled ]]; then
+    echo "Making SELinux configuration"
+    semanage fcontext -a -t virt_content_t "$LIBVIRT_PATH/$COREOS_HOSTNAME(/.*)?"
+    restorecon -R "$LIBVIRT_PATH"
+  fi
 
   virt-install \
     --connect qemu:///system \

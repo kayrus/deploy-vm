@@ -5,6 +5,12 @@ apt-get install libvirt-bin virtinst qemu-kvm virt-manager git
 
 ```
 
+Install on Fedora:
+
+```sh
+dnf install virt-install qemu-kvm libvirt virt-manager
+```
+
 Configure local resolver to use libvirt's dnsmasq:
 
 ```sh

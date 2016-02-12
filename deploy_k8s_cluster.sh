@@ -81,6 +81,12 @@ for SEQ in $(seq 1 $1); do
        s#%K8S_DNS%#$K8S_DNS#g;\
        s#%K8S_DOMAIN%#$K8S_DOMAIN#g" $USER_DATA_TEMPLATE > $LIBVIRT_PATH/$COREOS_HOSTNAME/openstack/latest/user_data
 
+  if [[ selinuxenabled ]]; then
+    echo "Making SELinux configuration"
+    semanage fcontext -a -t virt_content_t "$LIBVIRT_PATH/$COREOS_HOSTNAME(/.*)?"
+    restorecon -R "$LIBVIRT_PATH"
+  fi
+
   virt-install \
     --connect qemu:///system \
     --import \

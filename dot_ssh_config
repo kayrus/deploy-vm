@@ -20,3 +20,12 @@ Host ubuntu?
   StrictHostKeyChecking no
   UserKnownHostsFile ~/.ssh/known_hosts.ubuntu
   UseRoaming no
+
+Host centos?
+  User centos
+  #IdentityFile ~/.ssh/id_rsa
+  PreferredAuthentications password
+  PubkeyAuthentication no
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.centos
+  UseRoaming no
