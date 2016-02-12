@@ -23,9 +23,7 @@ Host ubuntu?
 
 Host centos?
   User centos
-  #IdentityFile ~/.ssh/id_rsa
-  PreferredAuthentications password
-  PubkeyAuthentication no
+  IdentityFile ~/.ssh/id_rsa
   StrictHostKeyChecking no
   UserKnownHostsFile ~/.ssh/known_hosts.centos
   UseRoaming no

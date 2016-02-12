@@ -1,0 +1,524 @@
+#cloud-config
+ssh_authorized_keys:
+ - %PUB_KEY%
+write-files:
+  - path: /etc/kubernetes/ssl/openssl.cnf
+    permissions: '0644'
+    content: |
+      [req]
+      req_extensions = v3_req
+      distinguished_name = req_distinguished_name
+      [req_distinguished_name]
+      [ v3_req ]
+      basicConstraints = CA:FALSE
+      keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+      subjectAltName = @alt_names
+      [alt_names]
+      DNS.1 = %HOSTNAME%
+      DNS.2 = kubernetes
+      DNS.3 = kubernetes.default
+      DNS.4 = kubernetes.default.svc
+      DNS.5 = kubernetes.default.svc.%K8S_DOMAIN%
+      IP.1 = %K8S_SERVICE_IP%
+  - path: /etc/kubernetes/ssl/make-ca-cert.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash -e
+      CA_KUBE=ca.pem
+      CA_KUBE_KEY=ca-key.pem
+      KUBE_SSL_CONF=openssl.cnf
+      # Set permissions for the /etc/kubernetes/ssl directory
+      chmod 700 /etc/kubernetes/ssl
+      # inherit default 077 umask for the new files
+      docker run --rm -v /etc/kubernetes/ssl:/etc/kubernetes/ssl gcr.io/google_containers/hyperkube:%K8S_RELEASE% setfacl -d -m user::rwx /etc/kubernetes/ssl
+      # Kubernetes CA
+      openssl genrsa -out $CA_KUBE_KEY 2048
+      openssl req -x509 -new -nodes -key $CA_KUBE_KEY -days 10000 -out $CA_KUBE -subj "/CN=kube-ca"
+      # Kubernetes keypairs
+      openssl genrsa -out apiserver-key.pem 2048
+      openssl req -new -key apiserver-key.pem -out apiserver.csr -subj "/CN=kube-apiserver" -config $KUBE_SSL_CONF
+      openssl x509 -req -in apiserver.csr -CA $CA_KUBE -CAkey $CA_KUBE_KEY -CAcreateserial -out apiserver.pem -days 365 -extensions v3_req -extfile $KUBE_SSL_CONF
+      openssl genrsa -out worker-key.pem 2048
+      openssl req -new -key worker-key.pem -out worker.csr -subj "/CN=kube-worker"
+      openssl x509 -req -in worker.csr -CA $CA_KUBE -CAkey $CA_KUBE_KEY -CAcreateserial -out worker.pem -days 365
+      openssl genrsa -out admin-key.pem 2048
+      openssl req -new -key admin-key.pem -out admin.csr -subj "/CN=kube-admin"
+      openssl x509 -req -in admin.csr -CA $CA_KUBE -CAkey $CA_KUBE_KEY -CAcreateserial -out admin.pem -days 365
+  - path: /etc/kubernetes/mk-kubeconfig.sh
+    permissions: '0700'
+    content: |
+      #!/bin/bash -e
+      CERT_DIR=/etc/kubernetes/ssl
+      KUBELET_CERT=$(cat $CERT_DIR/worker.pem | base64 -w0)
+      KUBELET_KEY=$(cat $CERT_DIR/worker-key.pem | base64 -w0)
+      KUBELET_CA_CERT=$(cat $CERT_DIR/ca.pem | base64 -w0)
+      eval "echo \"$(cat /etc/kubernetes/kubeconfig.yaml.in)\"" | etcdctl set /kubeconfig > /dev/null
+  - path: /etc/kubernetes/kubeconfig.yaml.in
+    permissions: '0600'
+    content: |
+      apiVersion: v1
+      kind: Config
+      clusters:
+      - name: local
+        cluster:
+          certificate-authority-data: ${KUBELET_CA_CERT}
+      users:
+      - name: kubelet
+        user:
+          client-certificate-data: ${KUBELET_CERT}
+          client-key-data: ${KUBELET_KEY}
+      contexts:
+      - context:
+          cluster: local
+          user: kubelet
+        name: kubelet-context
+      current-context: kubelet-context
+  - path: /etc/kubernetes/skydns.yaml
+    permissions: '0644'
+    content: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: kube-dns
+        namespace: kube-system
+        labels:
+          k8s-app: kube-dns
+          kubernetes.io/cluster-service: "true"
+          kubernetes.io/name: "KubeDNS"
+      spec:
+        selector:
+          k8s-app: kube-dns
+        clusterIP: %DNS_SERVICE_IP%
+        ports:
+        - name: dns
+          port: 53
+          protocol: UDP
+        - name: dns-tcp
+          port: 53
+          protocol: TCP
+      
+      ---
+      
+      apiVersion: v1
+      kind: ReplicationController
+      metadata:
+        name: kube-dns-v10
+        namespace: kube-system
+        labels:
+          k8s-app: kube-dns
+          version: v10
+          kubernetes.io/cluster-service: "true"
+      spec:
+        replicas: 1
+        selector:
+          k8s-app: kube-dns
+          version: v10
+        template:
+          metadata:
+            labels:
+              k8s-app: kube-dns
+              version: v10
+              kubernetes.io/cluster-service: "true"
+          spec:
+            containers:
+            - name: etcd
+              image: gcr.io/google_containers/etcd:2.0.9
+              resources:
+                # keep request = limit to keep this container in guaranteed class
+                limits:
+                  cpu: 100m
+                  memory: 50Mi
+                requests:
+                  cpu: 100m
+                  memory: 50Mi
+              command:
+              - /usr/local/bin/etcd
+              - -data-dir
+              - /var/etcd/data
+              - -listen-client-urls
+              - http://127.0.0.1:2379,http://127.0.0.1:4001
+              - -advertise-client-urls
+              - http://127.0.0.1:2379,http://127.0.0.1:4001
+              - -initial-cluster-token
+              - skydns-etcd
+              volumeMounts:
+              - name: etcd-storage
+                mountPath: /var/etcd/data
+            - name: kube2sky
+              image: gcr.io/google_containers/kube2sky:1.12
+              resources:
+                # keep request = limit to keep this container in guaranteed class
+                limits:
+                  cpu: 100m
+                  memory: 50Mi
+                requests:
+                  cpu: 100m
+                  memory: 50Mi
+              args:
+              # command = "/kube2sky"
+              - -domain=%K8S_DOMAIN%
+            - name: skydns
+              image: gcr.io/google_containers/skydns:2015-10-13-8c72f8c
+              resources:
+                # keep request = limit to keep this container in guaranteed class
+                limits:
+                  cpu: 100m
+                  memory: 50Mi
+                requests:
+                  cpu: 100m
+                  memory: 50Mi
+              args:
+              # command = "/skydns"
+              - -machines=http://127.0.0.1:4001
+              - -addr=0.0.0.0:53
+              - -ns-rotate=false
+              - -domain=%K8S_DOMAIN%.
+              ports:
+              - containerPort: 53
+                name: dns
+                protocol: UDP
+              - containerPort: 53
+                name: dns-tcp
+                protocol: TCP
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 30
+                timeoutSeconds: 5
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: 8080
+                  scheme: HTTP
+                initialDelaySeconds: 1
+                timeoutSeconds: 5
+            - name: healthz
+              image: gcr.io/google_containers/exechealthz:1.0
+              resources:
+                # keep request = limit to keep this container in guaranteed class
+                limits:
+                  cpu: 10m
+                  memory: 20Mi
+                requests:
+                  cpu: 10m
+                  memory: 20Mi
+              args:
+              - -cmd=nslookup kubernetes.default.svc.%K8S_DOMAIN% 127.0.0.1 >/dev/null
+              - -port=8080
+              ports:
+              - containerPort: 8080
+                protocol: TCP
+            volumes:
+            - name: etcd-storage
+              emptyDir: {}
+            dnsPolicy: Default  # Don't use cluster DNS.
+  - path: /etc/kubernetes/manifests/kube-apiserver.yaml
+    permissions: '0644'
+    content: |
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: kube-apiserver
+        namespace: kube-system
+      spec:
+        hostNetwork: true
+        containers:
+        - name: kube-apiserver
+          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          command:
+          - /hyperkube
+          - apiserver
+          - --bind-address=0.0.0.0
+          - --etcd_servers=%ETCD_ENDPOINTS%
+          - --allow-privileged=true
+          - --service-cluster-ip-range=%SERVICE_IP_RANGE%
+          - --secure_port=443
+          # - --advertise-address=%HOSTNAME%
+          - --admission-control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota
+          - --tls-cert-file=/etc/kubernetes/ssl/apiserver.pem
+          - --tls-private-key-file=/etc/kubernetes/ssl/apiserver-key.pem
+          - --client-ca-file=/etc/kubernetes/ssl/ca.pem
+          - --service-account-key-file=/etc/kubernetes/ssl/apiserver-key.pem
+          ports:
+          - containerPort: 443
+            hostPort: 443
+            name: https
+          - containerPort: 8080
+            hostPort: 8080
+            name: local
+          volumeMounts:
+          - mountPath: /etc/kubernetes/ssl
+            name: ssl-certs-kubernetes
+            readOnly: true
+          - mountPath: /etc/ssl/certs
+            name: ssl-certs-host
+            readOnly: true
+        volumes:
+        - hostPath:
+            path: /etc/kubernetes/ssl
+          name: ssl-certs-kubernetes
+        - hostPath:
+            path: /usr/share/ca-certificates
+          name: ssl-certs-host
+  - path: /etc/kubernetes/manifests/kube-proxy.yaml
+    permissions: '0644'
+    content: |
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: kube-proxy
+        namespace: kube-system
+      spec:
+        hostNetwork: true
+        containers:
+        - name: kube-proxy
+          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          command:
+          - /hyperkube
+          - proxy
+          - --master=http://127.0.0.1:8080
+          securityContext:
+            privileged: true
+          volumeMounts:
+          - mountPath: /etc/ssl/certs
+            name: ssl-certs-host
+            readOnly: true
+        volumes:
+        - hostPath:
+            path: /usr/share/ca-certificates
+          name: ssl-certs-host
+  - path: /etc/kubernetes/manifests/kube-podmaster.yaml
+    permissions: '0644'
+    content: |
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: kube-podmaster
+        namespace: kube-system
+      spec:
+        hostNetwork: true
+        containers:
+        - name: scheduler-elector
+          image: gcr.io/google_containers/podmaster:1.1
+          command:
+          - /podmaster
+          - --etcd-servers=%ETCD_ENDPOINTS%
+          - --key=scheduler
+          - --whoami=%HOSTNAME%
+          - --source-file=/src/manifests/kube-scheduler.yaml
+          - --dest-file=/dst/manifests/kube-scheduler.yaml
+          volumeMounts:
+          - mountPath: /src/manifests
+            name: manifest-src
+            readOnly: true
+          - mountPath: /dst/manifests
+            name: manifest-dst
+        - name: controller-manager-elector
+          image: gcr.io/google_containers/podmaster:1.1
+          command:
+          - /podmaster
+          - --etcd-servers=%ETCD_ENDPOINTS%
+          - --key=controller
+          - --whoami=%HOSTNAME%
+          - --source-file=/src/manifests/kube-controller-manager.yaml
+          - --dest-file=/dst/manifests/kube-controller-manager.yaml
+          terminationMessagePath: /dev/termination-log
+          volumeMounts:
+          - mountPath: /src/manifests
+            name: manifest-src
+            readOnly: true
+          - mountPath: /dst/manifests
+            name: manifest-dst
+        volumes:
+        - hostPath:
+            path: /srv/kubernetes/manifests
+          name: manifest-src
+        - hostPath:
+            path: /etc/kubernetes/manifests
+          name: manifest-dst
+  - path: /srv/kubernetes/manifests/kube-controller-manager.yaml
+    permissions: '0644'
+    content: |
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: kube-controller-manager
+        namespace: kube-system
+      spec:
+        containers:
+        - name: kube-controller-manager
+          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          command:
+          - /hyperkube
+          - controller-manager
+          - --master=http://127.0.0.1:8080
+          - --service-account-private-key-file=/etc/kubernetes/ssl/apiserver-key.pem
+          - --root-ca-file=/etc/kubernetes/ssl/ca.pem
+          livenessProbe:
+            httpGet:
+              host: 127.0.0.1
+              path: /healthz
+              port: 10252
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+          volumeMounts:
+          - mountPath: /etc/kubernetes/ssl
+            name: ssl-certs-kubernetes
+            readOnly: true
+          - mountPath: /etc/ssl/certs
+            name: ssl-certs-host
+            readOnly: true
+        hostNetwork: true
+        volumes:
+        - hostPath:
+            path: /etc/kubernetes/ssl
+          name: ssl-certs-kubernetes
+        - hostPath:
+            path: /usr/share/ca-certificates
+          name: ssl-certs-host
+  - path: /srv/kubernetes/manifests/kube-scheduler.yaml
+    permissions: '0644'
+    content: |
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: kube-scheduler
+        namespace: kube-system
+      spec:
+        hostNetwork: true
+        containers:
+        - name: kube-scheduler
+          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          command:
+          - /hyperkube
+          - scheduler
+          - --master=http://127.0.0.1:8080
+          livenessProbe:
+            httpGet:
+              host: 127.0.0.1
+              path: /healthz
+              port: 10251
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+hostname: %HOSTNAME%
+coreos:
+  etcd2:
+    # generate a new token for each unique cluster from https://discovery.etcd.io/new?size=3
+    # specify the initial size of your cluster with ?size=X
+    discovery: %DISCOVERY%
+    advertise-client-urls: http://%H:2379,http://%H:4001
+    initial-advertise-peer-urls: http://%H:2380
+    # listen on both the official ports and the legacy ports
+    # legacy ports can be omitted if your application doesn't depend on them
+    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
+    listen-peer-urls: http://%H:2380
+#  fleet:
+#    metadata: "role=master"
+  units:
+    - name: systemd-networkd.service
+      command: restart
+    - name: etcd2.service
+      command: start
+#    - name: fleet.service
+#      command: start
+    - name: flanneld.service
+      command: start
+      drop-ins:
+        - name: 50-network-config.conf
+          content: |
+            [Unit]
+            Requires=etcd2.service
+            [Service]
+            ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{"Network":"%POD_NETWORK%", "Backend": {"Type": "%FLANNEL_TYPE%"}}'
+    - name: docker.service
+      drop-ins:
+        - name: 40-flannel.conf
+          content: |
+            [Unit]
+            Requires=flanneld.service
+            After=flanneld.service
+        - name: 99-silent.conf
+          content: |
+            [Service]
+            # suppress docker verbosity on worker nodes
+            Environment=DOCKER_OPTS=--log-level=error
+    - name: generate-keys.service
+      command: start
+      content: |
+        [Unit]
+        ConditionPathExists=!/etc/kubernetes/ssl/.certs.lock
+        Requires=network-online.target docker.service
+        After=network-online.target docker.service
+        [Service]
+        WorkingDirectory=/etc/kubernetes/ssl
+        ExecStart=/etc/kubernetes/ssl/make-ca-cert.sh
+        ExecStartPost=/usr/bin/touch /etc/kubernetes/ssl/.certs.lock
+        # wait for etcd ready
+        ExecStartPost=/usr/bin/bash -c "while true; do etcdctl ls / > /dev/null && exit 0; sleep 1; done"
+        ExecStartPost=/etc/kubernetes/mk-kubeconfig.sh
+        Type=oneshot
+        RemainAfterExit=true
+    - name: kubelet.service
+      command: start
+      content: |
+        [Unit]
+        Requires=docker.service generate-keys.service
+        After=docker.service generate-keys.service
+        [Service]
+        ExecStart=/usr/bin/kubelet \
+          --api_servers=http://127.0.0.1:8080 \
+          --register-node=false \
+          --allow-privileged=true \
+          --config=/etc/kubernetes/manifests \
+          --hostname-override=%H \
+          --cluster_dns=%DNS_SERVICE_IP% \
+          --cluster_domain=%K8S_DOMAIN% \
+          --cadvisor-port=0
+        Restart=always
+        RestartSec=10
+        [Install]
+        WantedBy=multi-user.target
+    - name: kube-system-ns.service
+      command: start
+      content: |
+        [Unit]
+        ConditionPathExists=!/etc/kubernetes/.kube-system-ns.lock
+        Requires=kubelet.service
+        After=kubelet.service
+        [Service]
+        ExecStartPre=/usr/bin/bash -c "while true; do curl -v http://127.0.0.1:8080/api/v1/namespaces/kube-system -o /dev/null 2>&1 | grep '404 Not Found' > /dev/null && exit 0; sleep 1; done"
+        ExecStart=/usr/bin/bash -c 'curl -XPOST -d\'{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"kube-system"}}\' "http://127.0.0.1:8080/api/v1/namespaces"'
+        ExecStartPost=/usr/bin/touch /etc/kubernetes/.kube-system-ns.lock
+        Type=oneshot
+        RemainAfterExit=true
+    - name: download-kubectl.service
+      command: start
+      content: |
+        [Unit]
+        Description=Download kubectl binary
+        Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+        Requires=network-online.target
+        After=network-online.target
+        [Service]
+        ExecStartPre=-/usr/bin/mkdir -p /opt/bin
+        ExecStart=/usr/bin/curl -s -L -o /opt/bin/kubectl -z /opt/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/%K8S_RELEASE%/bin/linux/amd64/kubectl
+        ExecStartPost=/usr/bin/chmod +x /opt/bin/kubectl
+        RemainAfterExit=yes
+        Type=oneshot
+    - name: skydns.service
+      command: start
+      content: |
+        [Unit]
+        ConditionPathExists=!/etc/kubernetes/.skydns.lock
+        Requires=download-kubectl.service
+        After=download-kubectl.service
+        [Service]
+        ExecStartPre=/usr/bin/bash -c "while true; do /opt/bin/kubectl get nodes && exit 0; sleep 1; done"
+        ExecStart=/opt/bin/kubectl create -f /etc/kubernetes/skydns.yaml
+        ExecStartPost=/usr/bin/touch /etc/kubernetes/.skydns.lock
+        RemainAfterExit=yes
+        Type=oneshot
+  update:
+    reboot-strategy: off

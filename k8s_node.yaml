@@ -1,0 +1,124 @@
+#cloud-config
+ssh_authorized_keys:
+ - %PUB_KEY%
+write-files:
+  - path: /etc/kubernetes/manifests/kube-proxy.yaml
+    permissions: '0644'
+    content: |
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: kube-proxy
+        namespace: kube-system
+      spec:
+        hostNetwork: true
+        containers:
+        - name: kube-proxy
+          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          command:
+          - /hyperkube
+          - proxy
+          - --master=https://%MASTER_HOST%
+          - --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /etc/ssl/certs
+              name: "ssl-certs"
+            - mountPath: /etc/kubernetes/worker-kubeconfig.yaml
+              name: "kubeconfig"
+              readOnly: true
+            - mountPath: /etc/kubernetes/ssl
+              name: "etc-kube-ssl"
+              readOnly: true
+        volumes:
+          - name: "ssl-certs"
+            hostPath:
+              path: "/usr/share/ca-certificates"
+          - name: "kubeconfig"
+            hostPath:
+              path: "/etc/kubernetes/worker-kubeconfig.yaml"
+          - name: "etc-kube-ssl"
+            hostPath:
+              path: "/etc/kubernetes/ssl"
+hostname: %HOSTNAME%
+coreos:
+  etcd2:
+    # generate a new token for each unique cluster from https://discovery.etcd.io/new?size=3
+    # specify the initial size of your cluster with ?size=X
+    discovery: %DISCOVERY%
+    advertise-client-urls: http://%H:2379,http://%H:4001
+    initial-advertise-peer-urls: http://%H:2380
+    # listen on both the official ports and the legacy ports
+    # legacy ports can be omitted if your application doesn't depend on them
+    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
+    listen-peer-urls: http://%H:2380
+#  fleet:
+#    metadata: "role=master"
+#  fleet:
+#    metadata: "role=node"
+  units:
+    - name: systemd-networkd.service
+      command: restart
+    - name: etcd2.service
+      command: start
+#    - name: fleet.service
+#      command: start
+    - name: flanneld.service
+      command: start
+      drop-ins:
+        - name: 50-network-config.conf
+          content: |
+            [Unit]
+            Requires=etcd2.service
+            [Service]
+            ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{"Network":"%POD_NETWORK%", "Backend": {"Type": "%FLANNEL_TYPE%"}}'
+    - name: docker.service
+      drop-ins:
+        - name: 40-flannel.conf
+          content: |
+            [Unit]
+            Requires=flanneld.service
+            After=flanneld.service
+        - name: 99-silent.conf
+          content: |
+            [Service]
+            # suppress docker verbosity on worker nodes
+            Environment=DOCKER_OPTS=--log-level=error
+    - name: setup-kubelet-environment.service
+      command: start
+      content: |
+        [Unit]
+        Description=Setup Kubelet Environment
+        Requires=etcd2.service
+        After=etcd2.service
+        ConditionPathExists=!/etc/kubernetes/worker-kubeconfig.yaml
+        [Service]
+        ExecStartPre=-/usr/bin/mkdir -p /etc/kubernetes
+        ExecStart=/usr/bin/bash -c "while true; do etcdctl get /kubeconfig > /etc/kubernetes/worker-kubeconfig.yaml && exit 0; sleep 1; done"
+        ExecStartPost=/usr/bin/chmod 600 /etc/kubernetes/worker-kubeconfig.yaml
+        RemainAfterExit=yes
+        Type=oneshot
+    - name: kubelet.service
+      command: start
+      content: |
+        [Unit]
+        Requires=docker.service setup-kubelet-environment.service
+        After=docker.service setup-kubelet-environment.service
+        [Service]
+        ExecStart=/usr/bin/kubelet \
+          --api_servers=https://%MASTER_HOST% \
+          --register-node=true \
+          --allow-privileged=true \
+          --config=/etc/kubernetes/manifests \
+          --hostname-override=%H \
+          --cluster_dns=%DNS_SERVICE_IP% \
+          --cluster_domain=%K8S_DOMAIN% \
+          --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
+          --cadvisor-port=0
+        Restart=always
+        RestartSec=10
+        [Install]
+        WantedBy=multi-user.target
+  update:
+    reboot-strategy: off
