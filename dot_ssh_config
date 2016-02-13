@@ -27,3 +27,10 @@ Host centos?
   StrictHostKeyChecking no
   UserKnownHostsFile ~/.ssh/known_hosts.centos
   UseRoaming no
+
+Host debian?
+  User debian
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.debian
+  UseRoaming no
