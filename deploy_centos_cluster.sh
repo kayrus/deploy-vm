@@ -27,16 +27,23 @@ fi
 if [[ -z $2 || ! -f $2 ]]; then
   echo "SSH public key path is not specified"
   if [ -n $HOME ]; then
-        PUB_KEY_PATH="$HOME/.ssh/id_rsa.pub"
+    PUB_KEY_PATH="$HOME/.ssh/id_rsa.pub"
   else
-        echo "Can not determine home directory for SSH pub key path"
-        exit 1
+    echo "Can not determine home directory for SSH pub key path"
+    exit 1
   fi
 
   print_green "Will use default path to SSH public key: $PUB_KEY_PATH"
   if [ ! -f $PUB_KEY_PATH ]; then
-        echo "Path $PUB_KEY_PATH doesn't exist"
-        exit 1
+    echo "Path $PUB_KEY_PATH doesn't exist"
+    PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
+    if [ -f $PRIV_KEY_PATH ]; then
+      echo "Found private key, generating public key..."
+      sudo -u $USER ssh-keygen -y -f $PRIV_KEY_PATH | sudo -u $USER tee ${PUB_KEY_PATH} > /dev/null
+    else
+      echo "Generating private and public keys..."
+      sudo -u $USER ssh-keygen -t rsa -N "" -f $PRIV_KEY_PATH
+    fi
   fi
 else
   PUB_KEY_PATH=$2
