@@ -114,7 +114,7 @@ for SEQ in $(seq 1 $1); do
        s#%K8S_DNS%#$K8S_DNS#g;\
        s#%K8S_DOMAIN%#$K8S_DOMAIN#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
 
-  if [[ selinuxenabled ]]; then
+  if [[ $(selinuxenabled 2>/dev/null) ]]; then
     echo "Making SELinux configuration"
     semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
     semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
@@ -132,7 +132,8 @@ for SEQ in $(seq 1 $1); do
     --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
     --filesystem $IMG_PATH/$VM_HOSTNAME/,config-2,type=mount,mode=squash \
     --vnc \
-    --noautoconsole
+    --noautoconsole \
+#    --cpu=host
 done
 
 print_green "Use this command to connect to your cluster: 'ssh -i $PRIV_KEY_PATH core@$COREOS_MASTER_HOSTNAME'"

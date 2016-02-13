@@ -110,7 +110,8 @@ for SEQ in $(seq 1 $1); do
     --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
     --disk path=$IMG_PATH/$VM_HOSTNAME/cidata.iso,device=cdrom \
     --vnc \
-    --noautoconsole
+    --noautoconsole \
+#    --cpu=host
 done
 
 print_green "Use this command to connect to your cluster: 'ssh -i $PRIV_KEY_PATH ${OS_NAME}@$FIRST_HOST'"
