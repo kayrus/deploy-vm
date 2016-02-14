@@ -8,6 +8,8 @@ print_green() {
   echo -e "\e[92m$1\e[0m"
 }
 
+export LIBVIRT_DEFAULT_URI=qemu:///system
+
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
@@ -104,6 +106,10 @@ for SEQ in $(seq 1 $1); do
 
   if [[ $(selinuxenabled 2>/dev/null) ]]; then
     echo "Making SELinux configuration"
+    # centos
+    # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
+    # fedora
+    # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
     semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
     semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
     restorecon -R "$IMG_PATH"

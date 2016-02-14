@@ -34,3 +34,10 @@ Host debian?
   StrictHostKeyChecking no
   UserKnownHostsFile ~/.ssh/known_hosts.debian
   UseRoaming no
+
+Host fedora?
+  User fedora
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.fedora
+  UseRoaming no

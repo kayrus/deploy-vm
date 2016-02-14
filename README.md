@@ -1,13 +1,13 @@
 Install libvirt on Ubuntu:
 
 ```sh
-apt-get install -y libvirt-bin virtinst qemu-kvm virt-manager git
+apt-get install -y libvirt-bin virtinst qemu-kvm virt-manager git wget genisoimage
 ```
 
-Install on Fedora:
+Install on Fedora/CentOS:
 
 ```sh
-dnf install -y libvirt virt-install qemu-kvm virt-manager git
+yum install -y libvirt virt-install qemu-kvm virt-manager git wget genisoimage
 ```
 
 Configure local resolver to use libvirt's dnsmasq:

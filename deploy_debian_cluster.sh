@@ -8,6 +8,8 @@ print_green() {
   echo -e "\e[92m$1\e[0m"
 }
 
+export LIBVIRT_DEFAULT_URI=qemu:///system
+
 if [ "$1" == "" ]; then
   echo "Cluster size is empty"
   usage

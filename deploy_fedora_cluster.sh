@@ -52,19 +52,17 @@ else
   print_green "Will use this path to SSH public key: $PUB_KEY_PATH"
 fi
 
-OS_NAME="ubuntu"
+OS_NAME="fedora"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
 IMG_PATH=/var/lib/libvirt/images/${OS_NAME}
-#CHANNEL=trusty
-CHANNEL=vivid
-CHANNEL=xenial
-RELEASE=current
+CHANNEL=23
+RELEASE=20151030
 RAM=512
 CPUs=1
-IMG_NAME="ubuntu_${CHANNEL}_${RELEASE}_qemu_image.img"
-IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
+IMG_NAME="Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
+IMG_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/${CHANNEL}/Cloud/x86_64/Images/Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
 
 if [ ! -d $IMG_PATH ]; then
   mkdir -p $IMG_PATH || (echo "Can not create $IMG_PATH directory" && exit 1)
@@ -78,8 +76,10 @@ users:
   - default:
     ssh-authorized-keys:
       - '${PUB_KEY}'
+bootcmd:
+  - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
 runcmd:
-  - service networking restart
+  - service network restart
 "
 
 for SEQ in $(seq 1 $1); do

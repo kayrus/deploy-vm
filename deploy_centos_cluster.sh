@@ -8,6 +8,8 @@ print_green() {
   echo -e "\e[92m$1\e[0m"
 }
 
+export LIBVIRT_DEFAULT_URI=qemu:///system
+
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
