@@ -22,7 +22,7 @@ echo 'nameserver 192.168.122.1' | sudo tee -a /etc/resolvconf/resolv.conf.d/head
 
 ```sh
 sudo usermod -aG libvirtd $USER # for Debian/Ubuntu
-sudo usermod -aG libvirtd $USER # for CentOS/Fedora
+sudo usermod -aG libvirt $USER # for CentOS/Fedora
 ```
 
 **NOTE**: You have to relogin into your UI environment to apply these changes.
