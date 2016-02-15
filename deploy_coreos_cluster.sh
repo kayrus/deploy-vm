@@ -100,6 +100,31 @@ for SEQ in $(seq 1 $1); do
     FIRST_HOST=$VM_HOSTNAME
   fi
 
+  if [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
+    if [[ -z $SUDO_YES ]]; then
+      print_green "SELinux is enabled, this step requires sudo"
+      read -p "Are you sure you want to modify SELinux fcontext? " -n 1 -r
+      echo
+    fi
+
+    if [[ $REPLY =~ ^[Yy]$ || "$SUDO_YES" == "yes" ]]; then
+      unset $REPLY
+      SUDO_YES="yes"
+      # centos 7
+      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
+      # fedora 23
+      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
+      print_green "Adding SELinux fcontext for the '$IMG_PATH/$VM_HOSTNAME' path"
+      sudo semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
+      sudo semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
+      sudo restorecon -R "$IMG_PATH"
+    else
+      SUDO_YES="no"
+    fi
+  else
+    print_green "Skipping SELinux context modification"
+  fi
+
   virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
 
   if [ ! -d $IMG_PATH/$VM_HOSTNAME/openstack/latest ]; then
@@ -120,17 +145,6 @@ for SEQ in $(seq 1 $1); do
        s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
        s#%RANDOM_PASS%#$RANDOM_PASS#g;\
        s#%FIRST_HOST%#$FIRST_HOST#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
-
-  if [[ $(selinuxenabled 2>/dev/null) ]]; then
-    echo "Making SELinux configuration"
-    # centos 7
-    # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
-    # fedora 23
-    # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
-    semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
-    semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
-    restorecon -R "$IMG_PATH"
-  fi
 
   virt-install \
     --connect qemu:///system \
