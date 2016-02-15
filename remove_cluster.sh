@@ -66,7 +66,7 @@ for VM_HOSTNAME in $VMS; do
   virsh vol-delete ${VM_HOSTNAME}.qcow2 --pool $OS_NAME
   rm -rf ${IMG_PATH}/$VM_HOSTNAME
 
-  if [[ "$OS_NAME" == "coreos" && -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]]; then
+  if [ "$OS_NAME" == "coreos" ] && [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
     if [[ -z $SUDO_YES ]]; then
       print_green "SELinux is enabled, this step requires sudo"
       read -p "Are you sure you want to remove SELinux fcontext? (Type 'y' when agree) " -n 1 -r
