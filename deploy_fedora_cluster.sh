@@ -64,6 +64,20 @@ CPUs=1
 IMG_NAME="Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
 IMG_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/${CHANNEL}/Cloud/x86_64/Images/Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
 
+IMG_EXTENSION=""
+if [[ "${IMG_URL}" =~ \.([a-z0-9]+)$ ]]; then
+  IMG_EXTENSION=${BASH_REMATCH[1]}
+fi
+
+case "${IMG_EXTENSION}" in
+  bz2)
+    DECOMPRESS="| bzcat";;
+  xz)
+    DECOMPRESS="| xzcat";;
+  *)
+    DECOMPRESS="";;
+esac
+
 if [ ! -d $IMG_PATH ]; then
   mkdir -p $IMG_PATH || (echo "Can not create $IMG_PATH directory" && exit 1)
 fi
@@ -93,7 +107,7 @@ for SEQ in $(seq 1 $1); do
   fi
 
   if [ ! -f $IMG_PATH/$IMG_NAME ]; then
-    wget $IMG_URL -O - > $IMG_PATH/$IMG_NAME || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
+    wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
   fi
 
   if [ ! -f $IMG_PATH/$VM_HOSTNAME.qcow2 ]; then

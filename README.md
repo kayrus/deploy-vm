@@ -33,10 +33,10 @@ sudo ./deploy_coreos_cluster.sh 3
 Completely destroy and remove all related VMs cluster data (works with all destroy scripts):
 
 ```sh
-sudo ./destroy_coreos_cluster.sh
+sudo ./remove_cluster.sh coreos
 ```
 
-## VMs notes
+## VMs notes for the fleet tests
 
 ### CoreOS
 

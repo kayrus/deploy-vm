@@ -5,7 +5,7 @@ print_red() {
 }
 
 if [ -z $1 ]; then
-  echo "Enter OS_NAME and VM_PREFIX"
+  echo "Enter OS_NAME_PREFIX and VM_PREFIX"
   exit 1
 fi
 
