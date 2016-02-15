@@ -100,10 +100,14 @@ for SEQ in $(seq 1 $1); do
     FIRST_HOST=$VM_HOSTNAME
   fi
 
+  if [ ! -d $IMG_PATH/$VM_HOSTNAME/openstack/latest ]; then
+    mkdir -p $IMG_PATH/$VM_HOSTNAME/openstack/latest || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1)
+  fi
+
   if [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
     if [[ -z $SUDO_YES ]]; then
       print_green "SELinux is enabled, this step requires sudo"
-      read -p "Are you sure you want to modify SELinux fcontext? " -n 1 -r
+      read -p "Are you sure you want to modify SELinux fcontext? (Type 'y' when agree) " -n 1 -r
       echo
     fi
 
@@ -126,10 +130,6 @@ for SEQ in $(seq 1 $1); do
   fi
 
   virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
-
-  if [ ! -d $IMG_PATH/$VM_HOSTNAME/openstack/latest ]; then
-    mkdir -p $IMG_PATH/$VM_HOSTNAME/openstack/latest || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1)
-  fi
 
   if [ ! -f $IMG_PATH/$IMG_NAME ]; then
     eval "wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)

@@ -43,7 +43,7 @@ if [ -z "$VMS" ]; then
 fi
 
 VM_LIST=$(print_red "$VMS")
-read -p "Are you sure to remove '$VM_LIST'? " -n 1 -r
+read -p "Are you sure to remove '$VM_LIST'? (Type 'y' when agree) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
   exit 1
