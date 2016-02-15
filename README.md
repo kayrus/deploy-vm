@@ -1,13 +1,13 @@
 ## Install libvirt on Ubuntu:
 
 ```sh
-apt-get install -y libvirt-bin virtinst qemu-kvm virt-manager git wget genisoimage
+sudo apt-get install -y libvirt-bin virtinst qemu-kvm virt-manager git wget genisoimage
 ```
 
 ## Install on Fedora/CentOS:
 
 ```sh
-yum install -y libvirt virt-install qemu-kvm virt-manager git wget genisoimage
+sudo yum install -y libvirt virt-install qemu-kvm virt-manager git wget genisoimage
 ```
 
 ## Configure local resolver to use libvirt's dnsmasq:
@@ -18,7 +18,7 @@ echo 'nameserver 192.168.122.1' | sudo tee -a /etc/resolvconf/resolv.conf.d/head
 
 **NOTE**: This works only in Debian/Ubuntu
 
-## Add current user into `libvirt` group (will allow you ru run scripts without `sudo`):
+## Add current user into `libvirt` group (will allow you to run scripts without `sudo`):
 
 ```sh
 sudo usermod -aG libvirtd $USER # for Debian/Ubuntu
@@ -33,18 +33,26 @@ sudo usermod -aG libvirt $USER # for CentOS/Fedora
 cat dot_ssh_config >> ~/.ssh/config
 ```
 
-## Run VMs cluster (works with all deploy scripts) of 3 nodes
+## Run CoreOS VMs cluster (works with all deploy scripts) of 3 nodes
 
 ```sh
-sudo ./deploy_coreos_cluster.sh 3
+./deploy_coreos_cluster.sh 3
 ```
+
+May require sudo access to add exceptions for SELinux
 
 `user_data` file works only for CoreOS and contains a template for CoreOS configuration and it configures `etcd2` and `fleet`.
 
-## Completely destroy and remove all related VMs cluster data (works with all destroy scripts):
+## Run other VMs cluster of 3 nodes
 
 ```sh
-sudo ./remove_cluster.sh coreos
+./deploy_vms_cluster.sh centos 3
+```
+
+## Completely destroy and remove all related VMs cluster data
+
+```sh
+./remove_cluster.sh coreos
 ```
 
 ## VMs notes for the fleet tests
