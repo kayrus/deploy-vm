@@ -8,17 +8,25 @@ sudo service libvirt-bin start
 ## Install on Fedora/CentOS:
 
 ```sh
-sudo yum install -y libvirt virt-install qemu-kvm virt-manager git wget genisoimage policycoreutils-python-utils
+sudo yum install -y libvirt virt-install qemu-kvm virt-manager git wget genisoimage NetworkManager
 sudo service libvirtd start
 ```
 
 ## Configure local resolver to use libvirt's dnsmasq:
 
+* Ubuntu/Debian
+
 ```sh
-echo 'nameserver 192.168.122.1' | sudo tee -a /etc/resolvconf/resolv.conf.d/head && sudo resolvconf -u
+virsh net-dumpxml default | sed -r ":a;N;\$!ba;s#.*address='([0-9.]+)'.*#nameserver \1#" | sudo tee -a /etc/resolvconf/resolv.conf.d/head && sudo resolvconf -u
 ```
 
-**NOTE**: This works only in Debian/Ubuntu
+* Fedora/CentOS
+
+```sh
+sudo systemctl enable NetworkManager
+echo -e "[main]\ndns=dnsmasq" | sudo tee -a /etc/NetworkManager/NetworkManager.conf
+virsh net-dumpxml default | sed -r ":a;N;\$!ba;s#.*address='([0-9.]+)'.*#server=\1\nall-servers#" | sudo tee /etc/NetworkManager/dnsmasq.d/libvirt_dnsmasq.conf
+```
 
 ## Add current user into `libvirt` group (will allow you to run scripts without `sudo`):
 
