@@ -139,9 +139,8 @@ for SEQ in $(seq 1 $1); do
   fi
 
   if [ ! -f $IMG_PATH/${VM_HOSTNAME}.qcow2 ]; then
-    # We don't use "virsh vol-create-as" because it breaks ${VM_HOSTNAME}.qcow2 file permissions
-    qemu-img create -f qcow2 -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.qcow2
     virsh pool-refresh $OS_NAME
+    virsh vol-create-as --pool $OS_NAME --name ${VM_HOSTNAME}.qcow2 --capacity 10G --format qcow2 --backing-vol $IMG_NAME --backing-vol-format qcow2 || (echo "Failed to create ${VM_HOSTNAME}.qcow2 volume image" && exit 1)
   fi
 
   sed "s#%PUB_KEY%#$PUB_KEY#g;\
