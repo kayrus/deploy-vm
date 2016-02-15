@@ -14,6 +14,10 @@ export LIBVIRT_DEFAULT_URI=qemu:///system
 virsh nodeinfo > /dev/null 2>&1 || (echo "Failed to connect to the libvirt socket"; exit 1)
 virsh list --all --name | grep -q "^${OS_NAME}1$" && (echo "'${OS_NAME}1' VM already exists"; exit 1)
 
+# add "usermod -aG $USER qemu"
+# add "usermod -aG $USER kvm"
+# chmod g+x /home/$USER
+
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)

@@ -54,11 +54,31 @@ for VM_HOSTNAME in $VMS; do
   virsh undefine $VM_HOSTNAME
   virsh vol-delete ${VM_HOSTNAME}.qcow2 --pool $OS_NAME
   rm -rf ${IMG_PATH}/$VM_HOSTNAME
-  if [[ $(selinuxenabled 2>/dev/null) ]]; then
-    echo "Removing SELinux configuration"
-    semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
-    restorecon -R "$IMG_PATH"
+
+  if [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
+    if [[ -z $SUDO_YES ]]; then
+      print_green "SELinux is enabled, this step requires sudo"
+      read -p "Are you sure you want to modify SELinux fcontext? (Type 'y' when agree) " -n 1 -r
+      echo
+    fi
+
+    if [[ $REPLY =~ ^[Yy]$ || "$SUDO_YES" == "yes" ]]; then
+      unset $REPLY
+      SUDO_YES="yes"
+      # centos 7
+      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
+      # fedora 23
+      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
+      print_green "Removing SELinux fcontext for the '$IMG_PATH/$VM_HOSTNAME' path"
+      sudo semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
+      sudo restorecon -R "$IMG_PATH"
+    else
+      SUDO_YES="no"
+    fi
+  else
+    print_green "Skipping SELinux context modification"
   fi
+
   if [ -f "${HOME}/.ssh/known_hosts.${OS_NAME}" ]; then
     if [ -n "${SUDO_UID}" ]; then
       sudo -u $USER ssh-keygen -f "${HOME}/.ssh/known_hosts.${VM_PREFIX}" -R $VM_HOSTNAME
