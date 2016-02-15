@@ -1,13 +1,30 @@
 #!/bin/bash
 
+usage() {
+  echo "Usage: $0 %os_name% [%vms_prefix%]"
+}
+
 print_red() {
   echo -e "\e[91m$1\e[0m"
 }
 
 if [ -z $1 ]; then
-  echo "Enter OS_NAME_PREFIX and VM_PREFIX"
+  usage
   exit 1
 fi
+
+case "$1" in
+  coreos);;
+  centos);;
+  ubuntu);;
+  debian);;
+  fedora);;
+  *)
+    echo "'$1' OS prefix is not supported"
+    exit 1;;
+esac
+
+export LIBVIRT_DEFAULT_URI=qemu:///system
 
 OS_NAME=$1
 VM_PREFIX=${2:-$OS_NAME}
@@ -16,7 +33,7 @@ USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
 
-IMG_PATH=/var/lib/libvirt/images/${OS_NAME}
+IMG_PATH=${HOME}/.libvirt/${OS_NAME}
 
 VMS=$(virsh list --all --name | grep "^${VM_PREFIX}" | tr '\n' ' ')
 
@@ -33,13 +50,20 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 for VM_HOSTNAME in $VMS; do
-  virsh destroy $VM_HOSTNAME; virsh undefine $VM_HOSTNAME && rm -rf $IMG_PATH/$VM_HOSTNAME && rm -f $IMG_PATH/$VM_HOSTNAME.qcow2
+  virsh destroy $VM_HOSTNAME
+  virsh undefine $VM_HOSTNAME
+  virsh vol-delete ${VM_HOSTNAME}.qcow2 --pool $OS_NAME
+  rm -rf ${IMG_PATH}/$VM_HOSTNAME
   if [[ $(selinuxenabled 2>/dev/null) ]]; then
     echo "Removing SELinux configuration"
     semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
     restorecon -R "$IMG_PATH"
   fi
   if [ -f "${HOME}/.ssh/known_hosts.${OS_NAME}" ]; then
-    sudo -u $USER ssh-keygen -f "${HOME}/.ssh/known_hosts.${VM_PREFIX}" -R $VM_HOSTNAME
+    if [ -n "${SUDO_UID}" ]; then
+      sudo -u $USER ssh-keygen -f "${HOME}/.ssh/known_hosts.${VM_PREFIX}" -R $VM_HOSTNAME
+    else
+      ssh-keygen -f "${HOME}/.ssh/known_hosts.${VM_PREFIX}" -R $VM_HOSTNAME
+    fi
   fi
 done

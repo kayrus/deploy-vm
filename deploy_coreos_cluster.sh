@@ -56,7 +56,7 @@ OS_NAME="coreos"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
-IMG_PATH=/var/lib/libvirt/images/${OS_NAME}
+IMG_PATH=${HOME}/.libvirt/${OS_NAME}
 RANDOM_PASS=$(openssl rand -base64 12)
 USER_DATA_TEMPLATE=${CDIR}/user_data
 ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$1")
@@ -100,16 +100,19 @@ for SEQ in $(seq 1 $1); do
     FIRST_HOST=$VM_HOSTNAME
   fi
 
+  virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
+
   if [ ! -d $IMG_PATH/$VM_HOSTNAME/openstack/latest ]; then
     mkdir -p $IMG_PATH/$VM_HOSTNAME/openstack/latest || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1)
   fi
 
   if [ ! -f $IMG_PATH/$IMG_NAME ]; then
-    wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
+    eval "wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
   fi
 
-  if [ ! -f $IMG_PATH/$VM_HOSTNAME.qcow2 ]; then
-    qemu-img create -f qcow2 -b $IMG_PATH/$IMG_NAME $IMG_PATH/$VM_HOSTNAME.qcow2
+  if [ ! -f $IMG_PATH/${VM_HOSTNAME}.qcow2 ]; then
+    virsh pool-refresh $OS_NAME
+    virsh vol-create-as $OS_NAME ${VM_HOSTNAME}.qcow2 10G --format qcow2 --backing-vol $IMG_NAME --backing-vol-format qcow2 || (echo "Failed to create ${VM_HOSTNAME}.qcow2 volume image" && exit 1)
   fi
 
   sed "s#%PUB_KEY%#$PUB_KEY#g;\
@@ -120,9 +123,9 @@ for SEQ in $(seq 1 $1); do
 
   if [[ $(selinuxenabled 2>/dev/null) ]]; then
     echo "Making SELinux configuration"
-    # centos
+    # centos 7
     # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
-    # fedora
+    # fedora 23
     # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
     semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
     semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
