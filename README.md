@@ -2,12 +2,14 @@
 
 ```sh
 sudo apt-get install -y libvirt-bin virtinst qemu-kvm virt-manager git wget genisoimage
+sudo service libvirt-bin start
 ```
 
 ## Install on Fedora/CentOS:
 
 ```sh
-sudo yum install -y libvirt virt-install qemu-kvm virt-manager git wget genisoimage
+sudo yum install -y libvirt virt-install qemu-kvm virt-manager git wget genisoimage policycoreutils-python-utils
+sudo service libvirtd start
 ```
 
 ## Configure local resolver to use libvirt's dnsmasq:

@@ -8,7 +8,11 @@ print_green() {
   echo -e "\e[92m$1\e[0m"
 }
 
+OS_NAME="coreos"
+
 export LIBVIRT_DEFAULT_URI=qemu:///system
+virsh nodeinfo > /dev/null 2>&1 || (echo "Failed to connect to the libvirt socket"; exit 1)
+virsh list --all --name | grep -q "^${OS_NAME}1$" && (echo "'${OS_NAME}1' VM already exists"; exit 1)
 
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
@@ -52,7 +56,6 @@ else
   print_green "Will use this path to SSH public key: $PUB_KEY_PATH"
 fi
 
-OS_NAME="coreos"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
