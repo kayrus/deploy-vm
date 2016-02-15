@@ -8,6 +8,10 @@ print_red() {
   echo -e "\e[91m$1\e[0m"
 }
 
+print_green() {
+  echo -e "\e[92m$1\e[0m"
+}
+
 if [ -z $1 ]; then
   usage
   exit 1
