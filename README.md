@@ -29,6 +29,14 @@ sudo usermod -aG libvirt $USER # for CentOS/Fedora
 
 **NOTE**: You have to relogin into your UI environment to apply these changes.
 
+## Add libvirt/kvm/qemu user into your username group (will allow libvirt to read VMs images in your home directory):
+
+```sh
+sudo usermod -aG $USER libvirt-qemu # for Debian/Ubuntu
+sudo usermod -aG $USER qemu # for CentOS/Fedora
+chmod g+x $HOME
+```
+
 ## Configure ~/.ssh/config
 
 ```sh

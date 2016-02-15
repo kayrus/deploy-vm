@@ -121,10 +121,6 @@ for SEQ in $(seq 1 $1); do
     if [[ $REPLY =~ ^[Yy]$ || "$SUDO_YES" == "yes" ]]; then
       unset $REPLY
       SUDO_YES="yes"
-      # centos 7
-      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
-      # fedora 23
-      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
       print_green "Adding SELinux fcontext for the '$IMG_PATH/$VM_HOSTNAME' path"
       sudo semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
       sudo semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"

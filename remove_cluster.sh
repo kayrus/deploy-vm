@@ -1,15 +1,21 @@
 #!/bin/bash
 
-usage() {
-  echo "Usage: $0 %os_name% [%vms_prefix%]"
-}
-
 print_red() {
   echo -e "\e[91m$1\e[0m"
 }
 
 print_green() {
   echo -e "\e[92m$1\e[0m"
+}
+
+usage() {
+  echo "Usage: $0 %os_name% [%vms_prefix%]"
+  echo "  Supported OS:"
+  print_green "    * coreos"
+  print_green "    * centos"
+  print_green "    * ubuntu"
+  print_green "    * debian"
+  print_green "    * fedora"
 }
 
 if [ -z $1 ]; then
@@ -25,6 +31,7 @@ case "$1" in
   fedora);;
   *)
     echo "'$1' OS prefix is not supported"
+    usage
     exit 1;;
 esac
 
@@ -59,20 +66,16 @@ for VM_HOSTNAME in $VMS; do
   virsh vol-delete ${VM_HOSTNAME}.qcow2 --pool $OS_NAME
   rm -rf ${IMG_PATH}/$VM_HOSTNAME
 
-  if [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
+  if [[ "$OS_NAME" == "coreos" && -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]]; then
     if [[ -z $SUDO_YES ]]; then
       print_green "SELinux is enabled, this step requires sudo"
-      read -p "Are you sure you want to modify SELinux fcontext? (Type 'y' when agree) " -n 1 -r
+      read -p "Are you sure you want to remove SELinux fcontext? (Type 'y' when agree) " -n 1 -r
       echo
     fi
 
     if [[ $REPLY =~ ^[Yy]$ || "$SUDO_YES" == "yes" ]]; then
       unset $REPLY
       SUDO_YES="yes"
-      # centos 7
-      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
-      # fedora 23
-      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
       print_green "Removing SELinux fcontext for the '$IMG_PATH/$VM_HOSTNAME' path"
       sudo semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
       sudo restorecon -R "$IMG_PATH"

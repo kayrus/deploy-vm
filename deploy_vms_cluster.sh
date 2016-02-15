@@ -62,6 +62,7 @@ runcmd:
     ;;
   *)
     echo "'$1' OS is not supported"
+    usage
     exit 1
     ;;
 esac
