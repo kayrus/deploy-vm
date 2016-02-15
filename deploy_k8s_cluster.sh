@@ -62,7 +62,7 @@ OS_NAME="coreos"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
-IMG_PATH=/var/lib/libvirt/images/${OS_NAME}
+IMG_PATH=${HOME}/.libvirt/${OS_NAME}
 RANDOM_PASS=$(openssl rand -base64 12)
 MASTER_USER_DATA_TEMPLATE=${CDIR}/k8s_master_user_data
 NODE_USER_DATA_TEMPLATE=${CDIR}/k8s_node_user_data
@@ -122,12 +122,40 @@ for SEQ in $(seq 1 $1); do
     mkdir -p $IMG_PATH/$VM_HOSTNAME/openstack/latest || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1)
   fi
 
-  if [ ! -f $IMG_PATH/$IMG_NAME ]; then
-    wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
+  if [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
+    if [[ -z $SUDO_YES ]]; then
+      print_green "SELinux is enabled, this step requires sudo"
+      read -p "Are you sure you want to modify SELinux fcontext? (Type 'y' when agree) " -n 1 -r
+      echo
+    fi
+
+    if [[ $REPLY =~ ^[Yy]$ || "$SUDO_YES" == "yes" ]]; then
+      unset $REPLY
+      SUDO_YES="yes"
+      # centos 7
+      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
+      # fedora 23
+      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
+      print_green "Adding SELinux fcontext for the '$IMG_PATH/$VM_HOSTNAME' path"
+      sudo semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
+      sudo semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
+      sudo restorecon -R "$IMG_PATH"
+    else
+      SUDO_YES="no"
+    fi
+  else
+    print_green "Skipping SELinux context modification"
   fi
 
-  if [ ! -f $IMG_PATH/$VM_HOSTNAME.qcow2 ]; then
-    qemu-img create -f qcow2 -b $IMG_PATH/$IMG_NAME $IMG_PATH/$VM_HOSTNAME.qcow2
+  virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
+
+  if [ ! -f $IMG_PATH/$IMG_NAME ]; then
+    eval "wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
+  fi
+
+  if [ ! -f $IMG_PATH/${VM_HOSTNAME}.qcow2 ]; then
+    virsh pool-refresh $OS_NAME
+    virsh vol-create-as --pool $OS_NAME --name ${VM_HOSTNAME}.qcow2 --capacity 10G --format qcow2 --backing-vol $IMG_NAME --backing-vol-format qcow2 || (echo "Failed to create ${VM_HOSTNAME}.qcow2 volume image" && exit 1)
   fi
 
   sed "s#%PUB_KEY%#$PUB_KEY#g;\
@@ -140,13 +168,6 @@ for SEQ in $(seq 1 $1); do
        s#%K8S_NET%#$K8S_NET#g;\
        s#%K8S_DNS%#$K8S_DNS#g;\
        s#%K8S_DOMAIN%#$K8S_DOMAIN#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
-
-  if [[ $(selinuxenabled 2>/dev/null) ]]; then
-    echo "Making SELinux configuration"
-    semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
-    semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
-    restorecon -R "$IMG_PATH"
-  fi
 
   virt-install \
     --connect qemu:///system \
