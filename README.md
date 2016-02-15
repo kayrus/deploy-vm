@@ -49,8 +49,6 @@ cat dot_ssh_config >> ~/.ssh/config
 ./deploy_coreos_cluster.sh 3
 ```
 
-May require sudo access to add exceptions for SELinux
-
 `user_data` file works only for CoreOS and contains a template for CoreOS configuration and it configures `etcd2` and `fleet`.
 
 ## Run other VMs cluster of 3 nodes

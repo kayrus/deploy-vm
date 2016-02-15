@@ -8,7 +8,11 @@ print_green() {
   echo -e "\e[92m$1\e[0m"
 }
 
+OS_NAME="coreos"
+
 export LIBVIRT_DEFAULT_URI=qemu:///system
+virsh nodeinfo > /dev/null 2>&1 || (echo "Failed to connect to the libvirt socket"; exit 1)
+virsh list --all --name | grep -q "^${OS_NAME}1$" && (echo "'${OS_NAME}1' VM already exists"; exit 1)
 
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
@@ -58,7 +62,6 @@ else
   print_green "Will use this path to SSH public key: $PUB_KEY_PATH"
 fi
 
-OS_NAME="coreos"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
@@ -120,31 +123,23 @@ for SEQ in $(seq 1 $1); do
 
   if [ ! -d $IMG_PATH/$VM_HOSTNAME/openstack/latest ]; then
     mkdir -p $IMG_PATH/$VM_HOSTNAME/openstack/latest || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1)
-  fi
-
-  if [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
-    if [[ -z $SUDO_YES ]]; then
-      print_green "SELinux is enabled, this step requires sudo"
-      read -p "Are you sure you want to modify SELinux fcontext? (Type 'y' when agree) " -n 1 -r
-      echo
-    fi
-
-    if [[ $REPLY =~ ^[Yy]$ || "$SUDO_YES" == "yes" ]]; then
-      unset $REPLY
-      SUDO_YES="yes"
-      # centos 7
-      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
-      # fedora 23
-      # /var/lib/libvirt/images(/.*)? all files system_u:object_r:virt_image_t:s0
-      print_green "Adding SELinux fcontext for the '$IMG_PATH/$VM_HOSTNAME' path"
-      sudo semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
-      sudo semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
-      sudo restorecon -R "$IMG_PATH"
+    sed "s#%PUB_KEY%#$PUB_KEY#g;\
+         s#%HOSTNAME%#$VM_HOSTNAME#g;\
+         s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
+         s#%RANDOM_PASS%#$RANDOM_PASS#g;\
+         s#%MASTER_HOST%#$COREOS_MASTER_HOSTNAME#g;\
+         s#%K8S_RELEASE%#$K8S_RELEASE#g;\
+         s#%FLANNEL_TYPE%#$FLANNEL_TYPE#g;\
+         s#%K8S_NET%#$K8S_NET#g;\
+         s#%K8S_DNS%#$K8S_DNS#g;\
+         s#%K8S_DOMAIN%#$K8S_DOMAIN#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
+    if [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
+      # We use ISO configdrive to avoid complicated SELinux conditions
+      mkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME
+      CONFIG_DRIVE="--disk path=$IMG_PATH/$VM_HOSTNAME/configdrive.iso,device=cdrom"
     else
-      SUDO_YES="no"
+      CONFIG_DRIVE="--filesystem $IMG_PATH/$VM_HOSTNAME/,config-2,type=mount,mode=squash"
     fi
-  else
-    print_green "Skipping SELinux context modification"
   fi
 
   virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
@@ -158,17 +153,6 @@ for SEQ in $(seq 1 $1); do
     virsh vol-create-as --pool $OS_NAME --name ${VM_HOSTNAME}.qcow2 --capacity 10G --format qcow2 --backing-vol $IMG_NAME --backing-vol-format qcow2 || (echo "Failed to create ${VM_HOSTNAME}.qcow2 volume image" && exit 1)
   fi
 
-  sed "s#%PUB_KEY%#$PUB_KEY#g;\
-       s#%HOSTNAME%#$VM_HOSTNAME#g;\
-       s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
-       s#%RANDOM_PASS%#$RANDOM_PASS#g;\
-       s#%MASTER_HOST%#$COREOS_MASTER_HOSTNAME#g;\
-       s#%K8S_RELEASE%#$K8S_RELEASE#g;\
-       s#%FLANNEL_TYPE%#$FLANNEL_TYPE#g;\
-       s#%K8S_NET%#$K8S_NET#g;\
-       s#%K8S_DNS%#$K8S_DNS#g;\
-       s#%K8S_DOMAIN%#$K8S_DOMAIN#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
-
   virt-install \
     --connect qemu:///system \
     --import \
@@ -178,7 +162,7 @@ for SEQ in $(seq 1 $1); do
     --os-type=linux \
     --os-variant=virtio26 \
     --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
-    --filesystem $IMG_PATH/$VM_HOSTNAME/,config-2,type=mount,mode=squash \
+    $CONFIG_DRIVE \
     --vnc \
     --noautoconsole \
 #    --cpu=host

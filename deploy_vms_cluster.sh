@@ -173,14 +173,14 @@ for SEQ in $(seq 1 $2); do
   echo "$CC" > $IMG_PATH/$VM_HOSTNAME/user-data
   echo -e "instance-id: iid-${VM_HOSTNAME}\nlocal-hostname: ${VM_HOSTNAME}\nhostname: ${VM_HOSTNAME}" > $IMG_PATH/$VM_HOSTNAME/meta-data
 
-  genisoimage \
+  mkisofs \
     -input-charset utf-8 \
     -output $IMG_PATH/$VM_HOSTNAME/cidata.iso \
     -volid cidata \
     -joliet \
     -rock \
     $IMG_PATH/$VM_HOSTNAME/user-data \
-    $IMG_PATH/$VM_HOSTNAME/meta-data || (echo "Failed to create ISO images"; exit 1)
+    $IMG_PATH/$VM_HOSTNAME/meta-data || (echo "Failed to create ISO image"; exit 1)
   virsh pool-refresh $OS_NAME
 
   virt-install \

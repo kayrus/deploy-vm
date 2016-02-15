@@ -14,10 +14,6 @@ export LIBVIRT_DEFAULT_URI=qemu:///system
 virsh nodeinfo > /dev/null 2>&1 || (echo "Failed to connect to the libvirt socket"; exit 1)
 virsh list --all --name | grep -q "^${OS_NAME}1$" && (echo "'${OS_NAME}1' VM already exists"; exit 1)
 
-# add "usermod -aG $USER qemu"
-# add "usermod -aG $USER kvm"
-# chmod g+x /home/$USER
-
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
@@ -109,27 +105,18 @@ for SEQ in $(seq 1 $1); do
 
   if [ ! -d $IMG_PATH/$VM_HOSTNAME/openstack/latest ]; then
     mkdir -p $IMG_PATH/$VM_HOSTNAME/openstack/latest || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1)
-  fi
-
-  if [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
-    if [[ -z $SUDO_YES ]]; then
-      print_green "SELinux is enabled, this step requires sudo"
-      read -p "Are you sure you want to modify SELinux fcontext? (Type 'y' when agree) " -n 1 -r
-      echo
-    fi
-
-    if [[ $REPLY =~ ^[Yy]$ || "$SUDO_YES" == "yes" ]]; then
-      unset $REPLY
-      SUDO_YES="yes"
-      print_green "Adding SELinux fcontext for the '$IMG_PATH/$VM_HOSTNAME' path"
-      sudo semanage fcontext -d -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?" || true
-      sudo semanage fcontext -a -t virt_content_t "$IMG_PATH/$VM_HOSTNAME(/.*)?"
-      sudo restorecon -R "$IMG_PATH"
+    sed "s#%PUB_KEY%#$PUB_KEY#g;\
+         s#%HOSTNAME%#$VM_HOSTNAME#g;\
+         s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
+         s#%RANDOM_PASS%#$RANDOM_PASS#g;\
+         s#%FIRST_HOST%#$FIRST_HOST#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
+    if [ -n $(selinuxenabled 2>/dev/null || echo "SELinux") ]; then
+      # We use ISO configdrive to avoid complicated SELinux conditions
+      mkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME || (echo "Failed to create ISO image"; exit 1)
+      CONFIG_DRIVE="--disk path=$IMG_PATH/$VM_HOSTNAME/configdrive.iso,device=cdrom"
     else
-      SUDO_YES="no"
+      CONFIG_DRIVE="--filesystem $IMG_PATH/$VM_HOSTNAME/,config-2,type=mount,mode=squash"
     fi
-  else
-    print_green "Skipping SELinux context modification"
   fi
 
   virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
@@ -143,12 +130,6 @@ for SEQ in $(seq 1 $1); do
     virsh vol-create-as --pool $OS_NAME --name ${VM_HOSTNAME}.qcow2 --capacity 10G --format qcow2 --backing-vol $IMG_NAME --backing-vol-format qcow2 || (echo "Failed to create ${VM_HOSTNAME}.qcow2 volume image" && exit 1)
   fi
 
-  sed "s#%PUB_KEY%#$PUB_KEY#g;\
-       s#%HOSTNAME%#$VM_HOSTNAME#g;\
-       s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
-       s#%RANDOM_PASS%#$RANDOM_PASS#g;\
-       s#%FIRST_HOST%#$FIRST_HOST#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
-
   virt-install \
     --connect qemu:///system \
     --import \
@@ -158,7 +139,7 @@ for SEQ in $(seq 1 $1); do
     --os-type=linux \
     --os-variant=virtio26 \
     --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
-    --filesystem $IMG_PATH/$VM_HOSTNAME/,config-2,type=mount,mode=squash \
+    $CONFIG_DRIVE \
     --vnc \
     --noautoconsole \
 #    --cpu=host
