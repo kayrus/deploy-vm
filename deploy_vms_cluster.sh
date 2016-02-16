@@ -55,7 +55,7 @@ runcmd:
   ubuntu)
     BOOT_HOOK="runcmd:
   - service networking restart"
-    CHANNEL=xenial
+    CHANNEL=trusty
     RELEASE=current
     IMG_NAME="ubuntu_${CHANNEL}_${RELEASE}_qemu_image.img"
     IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
@@ -160,6 +160,9 @@ for SEQ in $(seq 1 $2); do
   fi
 
   virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
+  # Make this pool persistent
+  (virsh pool-dumpxml $OS_NAME | virsh pool-define /dev/stdin)
+  virsh pool-start $OS_NAME > /dev/null 2>&1 || true
 
   if [ ! -f $IMG_PATH/$IMG_NAME ]; then
     eval "wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)

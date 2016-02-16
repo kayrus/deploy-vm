@@ -74,3 +74,6 @@ for VM_HOSTNAME in $VMS; do
     fi
   fi
 done
+
+virsh pool-destroy $OS_NAME
+virsh pool-undefine $OS_NAME
