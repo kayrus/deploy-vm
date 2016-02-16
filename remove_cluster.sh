@@ -44,7 +44,7 @@ USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
 
-IMG_PATH=${HOME}/.libvirt/${OS_NAME}
+IMG_PATH=${HOME}/libvirt_images/${OS_NAME}
 
 VMS=$(virsh list --all --name | grep "^${VM_PREFIX}" | tr '\n' ' ')
 

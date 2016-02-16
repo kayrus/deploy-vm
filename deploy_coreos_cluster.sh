@@ -59,7 +59,7 @@ fi
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
-IMG_PATH=${HOME}/.libvirt/${OS_NAME}
+IMG_PATH=${HOME}/libvirt_images/${OS_NAME}
 RANDOM_PASS=$(openssl rand -base64 12)
 USER_DATA_TEMPLATE=${CDIR}/user_data
 ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$1")
