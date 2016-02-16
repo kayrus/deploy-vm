@@ -1,18 +1,18 @@
-## Install libvirt on Ubuntu:
+## Install libvirt on Ubuntu
 
 ```sh
 sudo apt-get install -y libvirt-bin virtinst qemu-kvm virt-manager git wget genisoimage
 sudo service libvirt-bin start
 ```
 
-## Install on Fedora/CentOS:
+## Install on Fedora/CentOS
 
 ```sh
 sudo yum install -y libvirt virt-install qemu-kvm virt-manager git wget genisoimage NetworkManager
 sudo service libvirtd start
 ```
 
-## Configure local resolver to use libvirt's dnsmasq:
+## Configure local resolver to use libvirt's dnsmasq
 
 * Ubuntu/Debian
 
@@ -26,9 +26,10 @@ virsh net-dumpxml default | sed -r ":a;N;\$!ba;s#.*address='([0-9.]+)'.*#nameser
 sudo systemctl enable NetworkManager
 echo -e "[main]\ndns=dnsmasq" | sudo tee -a /etc/NetworkManager/NetworkManager.conf
 virsh net-dumpxml default | sed -r ":a;N;\$!ba;s#.*address='([0-9.]+)'.*#server=\1\nall-servers#" | sudo tee /etc/NetworkManager/dnsmasq.d/libvirt_dnsmasq.conf
+sudo systemctl restart NetworkManager
 ```
 
-## Add current user into `libvirt` group (will allow you to run scripts without `sudo`):
+## Add current user into `libvirt` group (will allow you to run scripts without `sudo`)
 
 ```sh
 sudo usermod -aG libvirtd $USER # for Debian/Ubuntu
@@ -37,7 +38,9 @@ sudo usermod -aG libvirt $USER # for CentOS/Fedora
 
 **NOTE**: You have to relogin into your UI environment to apply these changes.
 
-## Add libvirt/kvm/qemu user into your username group (will allow libvirt to read VMs images in your home directory):
+## Allow libvirt to read VMs images in your home directory
+
+### Groups solution
 
 ```sh
 sudo usermod -aG $USER libvirt-qemu # for Debian/Ubuntu
@@ -45,10 +48,42 @@ sudo usermod -aG $USER qemu # for CentOS/Fedora
 chmod g+x $HOME
 ```
 
+### ACL solution
+
+#### Add permissions
+
+```sh
+setfacl -m "u:libvirt-qemu:--x" /home/$USER # for Debian/Ubuntu
+setfacl -m "u:qemu:--x" /home/$USER # for CentOS/Fedora
+```
+
+#### Remove permissions
+
+##### Remove ACL entries only for libvirt
+
+```sh
+setfacl -m "u:libvirt-qemu:---" /home/$USER # for Debian/Ubuntu
+setfacl -m "u:qemu:---" /home/$USER # for CentOS/Fedora
+```
+
+##### Remove all custom ACL entries
+
+```sh
+setfacl -b /home/$USER
+getfacl /home/$USER
+```
+
+## Configure virsh environment
+
+```sh
+echo "export LIBVIRT_DEFAULT_URI=qemu:///system" >> ~/.bashrc
+```
+
 ## Configure ~/.ssh/config
 
 ```sh
 cat dot_ssh_config >> ~/.ssh/config
+chmod 600 ~/.ssh/config
 ```
 
 ## Run CoreOS VMs cluster (works with all deploy scripts) of 3 nodes
