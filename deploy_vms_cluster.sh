@@ -11,6 +11,7 @@ usage() {
   print_green "    * ubuntu"
   print_green "    * debian"
   print_green "    * fedora"
+  print_green "    * windows"
 }
 
 if [ "$1" == "" ]; then
@@ -55,10 +56,18 @@ runcmd:
   ubuntu)
     BOOT_HOOK="runcmd:
   - service networking restart"
-    CHANNEL=trusty
+    CHANNEL=xenial
     RELEASE=current
     IMG_NAME="ubuntu_${CHANNEL}_${RELEASE}_qemu_image.img"
     IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
+    ;;
+  windows)
+    IMG_NAME="IE11-Win7-disk1.vmdk"
+    IMG_URL="https://az412801.vo.msecnd.net/vhd/VMBuild_20141027/VirtualBox/IE11/Windows/IE11.Win7.For.Windows.VirtualBox.zip"
+    DISK_BUS="ide"
+    DISK_FORMAT="vmdk"
+    NETWORK_DEVICE="rtl8139"
+    SKIP_CLOUD_CONFIG=true
     ;;
   *)
     echo "'$1' OS is not supported"
@@ -117,6 +126,9 @@ PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
 IMG_PATH=${HOME}/libvirt_images/${OS_NAME}
+DISK_BUS=${DISK_BUS:-virtio}
+NETWORK_DEVICE=${NETWORK_DEVICE:-virtio}
+DISK_FORMAT=${DISK_FORMAT:-qcow2}
 RAM=512
 CPUs=1
 
@@ -130,6 +142,8 @@ case "${IMG_EXTENSION}" in
     DECOMPRESS="| bzcat";;
   xz)
     DECOMPRESS="| xzcat";;
+  zip)
+    DECOMPRESS="| bsdtar -Oxf - 'IE11 - Win7.ova' | tar -Oxf - 'IE11 - Win7-disk1.vmdk'";;
   *)
     DECOMPRESS="";;
 esac
@@ -168,26 +182,30 @@ for SEQ in $(seq 1 $2); do
     eval "wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
   fi
 
-  if [ ! -f $IMG_PATH/${VM_HOSTNAME}.qcow2 ]; then
+  if [ ! -f $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} ]; then
     virsh pool-refresh $OS_NAME
-    virsh vol-create-as --pool $OS_NAME --name ${VM_HOSTNAME}.qcow2 --capacity 10G --format qcow2 --backing-vol $IMG_NAME --backing-vol-format qcow2 || \
-      qemu-img create -f qcow2 -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.qcow2 || \
-      (echo "Failed to create ${VM_HOSTNAME}.qcow2 volume image" && exit 1)
+    virsh vol-create-as --pool $OS_NAME --name ${VM_HOSTNAME}.${DISK_FORMAT} --capacity 10G --format ${DISK_FORMAT} --backing-vol $IMG_NAME --backing-vol-format $DISK_FORMAT || \
+      qemu-img create -f $DISK_FORMAT -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} || \
+      (echo "Failed to create ${VM_HOSTNAME}.${DISK_FORMAT} volume image" && exit 1)
     virsh pool-refresh $OS_NAME
   fi
 
   echo "$CC" > $IMG_PATH/$VM_HOSTNAME/user-data
   echo -e "instance-id: iid-${VM_HOSTNAME}\nlocal-hostname: ${VM_HOSTNAME}\nhostname: ${VM_HOSTNAME}" > $IMG_PATH/$VM_HOSTNAME/meta-data
 
-  mkisofs \
-    -input-charset utf-8 \
-    -output $IMG_PATH/$VM_HOSTNAME/cidata.iso \
-    -volid cidata \
-    -joliet \
-    -rock \
-    $IMG_PATH/$VM_HOSTNAME/user-data \
-    $IMG_PATH/$VM_HOSTNAME/meta-data || (echo "Failed to create ISO image"; exit 1)
-  virsh pool-refresh $OS_NAME
+  CC_DISK=""
+  if [ -z $SKIP_CLOUD_CONFIG ]; then
+    mkisofs \
+      -input-charset utf-8 \
+      -output $IMG_PATH/$VM_HOSTNAME/cidata.iso \
+      -volid cidata \
+      -joliet \
+      -rock \
+      $IMG_PATH/$VM_HOSTNAME/user-data \
+      $IMG_PATH/$VM_HOSTNAME/meta-data || (echo "Failed to create ISO image"; exit 1)
+    virsh pool-refresh $OS_NAME
+    CC_DISK="--disk path=$IMG_PATH/$VM_HOSTNAME/cidata.iso,device=cdrom"
+  fi
 
   virt-install \
     --connect qemu:///system \
@@ -197,8 +215,9 @@ for SEQ in $(seq 1 $2); do
     --vcpus $CPUs \
     --os-type=linux \
     --os-variant=virtio26 \
-    --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
-    --disk path=$IMG_PATH/$VM_HOSTNAME/cidata.iso,device=cdrom \
+    --network network=default,model=${NETWORK_DEVICE} \
+    --disk path=$IMG_PATH/$VM_HOSTNAME.${DISK_FORMAT},format=${DISK_FORMAT},bus=$DISK_BUS \
+    $CC_DISK \
     --vnc \
     --noautoconsole \
 #    --cpu=host

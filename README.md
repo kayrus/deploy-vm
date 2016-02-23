@@ -5,6 +5,12 @@ sudo apt-get install -y libvirt-bin virtinst qemu-kvm virt-manager git wget geni
 sudo service libvirt-bin start
 ```
 
+For the Windows VM support install `bsdtar`:
+
+```sh
+sudo apt-get install bsdtar
+```
+
 ## Install on Fedora/CentOS
 
 ```sh

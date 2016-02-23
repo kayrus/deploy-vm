@@ -16,6 +16,7 @@ usage() {
   print_green "    * ubuntu"
   print_green "    * debian"
   print_green "    * fedora"
+  print_green "    * windows"
 }
 
 if [ -z $1 ]; then
@@ -29,6 +30,7 @@ case "$1" in
   ubuntu);;
   debian);;
   fedora);;
+  windows);;
   *)
     echo "'$1' OS prefix is not supported"
     usage
