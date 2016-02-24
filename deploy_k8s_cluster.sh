@@ -67,8 +67,8 @@ PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
 IMG_PATH=${HOME}/libvirt_images/${OS_NAME}
 RANDOM_PASS=$(openssl rand -base64 12)
-MASTER_USER_DATA_TEMPLATE=${CDIR}/k8s_master_user_data
-NODE_USER_DATA_TEMPLATE=${CDIR}/k8s_node_user_data
+MASTER_USER_DATA_TEMPLATE=${CDIR}/k8s_master.yaml
+NODE_USER_DATA_TEMPLATE=${CDIR}/k8s_node.yaml
 ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$1")
 CHANNEL=alpha
 RELEASE=current
