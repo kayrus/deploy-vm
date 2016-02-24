@@ -5,7 +5,7 @@ sudo apt-get install -y libvirt-bin virtinst qemu-kvm virt-manager git wget geni
 sudo service libvirt-bin start
 ```
 
-For the Windows VM support install `bsdtar`:
+For the Windows VM support install `bsdtar` (this tool allows to extract zip archive from stdin):
 
 ```sh
 sudo apt-get install bsdtar
@@ -16,6 +16,12 @@ sudo apt-get install bsdtar
 ```sh
 sudo yum install -y libvirt virt-install qemu-kvm virt-manager git wget genisoimage NetworkManager
 sudo service libvirtd start
+```
+
+For the Windows VM support install `bsdtar` (this tool allows to extract zip archive from stdin):
+
+```sh
+sudo yum install bsdtar
 ```
 
 ## Configure local resolver to use libvirt's dnsmasq
@@ -102,8 +108,20 @@ chmod 600 ~/.ssh/config
 
 ## Run other VMs cluster of 3 nodes
 
+### Linux
+
+Run three CentOS VMs
+
 ```sh
 ./deploy_vms_cluster.sh centos 3
+```
+
+### Windows
+
+Run one Windows VM
+
+```sh
+./deploy_vms_cluster.sh windows 1
 ```
 
 ## Completely destroy and remove all related VMs cluster data

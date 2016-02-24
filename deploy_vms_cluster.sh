@@ -62,6 +62,17 @@ runcmd:
     IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
     ;;
   windows)
+    WINDOWS_VARIANT="IE6.XP.For.Windows.VirtualBox.zip"
+    WINDOWS_VARIANT="IE7.Vista.For.Windows.VirtualBox.zip"
+    WINDOWS_VARIANT="IE8.XP.For.Windows.VirtualBox.zip"
+    WINDOWS_VARIANT="IE8.Win7.For.Windows.VirtualBox.zip"
+    WINDOWS_VARIANT="IE9.Win7.For.Windows.VirtualBox.zip"
+    WINDOWS_VARIANT="IE10.Win7.For.Windows.VirtualBox.zip"
+    WINDOWS_VARIANT="IE10.Win8.For.Windows.VirtualBox.zip"
+    WINDOWS_VARIANT="IE11.Win8.1.For.Windows.VirtualBox.zip"
+    WINDOWS_VARIANT="IE11.Win7.For.Windows.VirtualBox.zip"
+    WINDOWS_VARIANT="Microsoft%20Edge.Win10.For.Windows.VirtualBox.zip" # https://az792536.vo.msecnd.net/vms/VMBuild_20150801/VirtualBox/MSEdge/Windows/Microsoft%20Edge.Win10.For.Windows.VirtualBox.zip
+
     IMG_NAME="IE11-Win7-disk1.vmdk"
     IMG_URL="https://az412801.vo.msecnd.net/vhd/VMBuild_20141027/VirtualBox/IE11/Windows/IE11.Win7.For.Windows.VirtualBox.zip"
     DISK_BUS="ide"
