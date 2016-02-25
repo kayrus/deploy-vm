@@ -30,7 +30,7 @@ case "$1" in
   ubuntu);;
   debian);;
   fedora);;
-  windows);;
+  windows)DISK_FORMAT="vmdk";;
   *)
     echo "'$1' OS prefix is not supported"
     usage
@@ -47,6 +47,7 @@ USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
 
 IMG_PATH=${HOME}/libvirt_images/${OS_NAME}
+DISK_FORMAT=${DISK_FORMAT:-qcow2}
 
 VMS=$(virsh list --all --name | grep "^${VM_PREFIX}" | tr '\n' ' ')
 
@@ -65,7 +66,7 @@ fi
 for VM_HOSTNAME in $VMS; do
   virsh destroy $VM_HOSTNAME
   virsh undefine $VM_HOSTNAME
-  virsh vol-delete ${VM_HOSTNAME}.qcow2 --pool $OS_NAME
+  virsh vol-delete ${VM_HOSTNAME}.${DISK_FORMAT} --pool $OS_NAME
   rm -rf ${IMG_PATH}/$VM_HOSTNAME
 
   if [ -f "${HOME}/.ssh/known_hosts.${OS_NAME}" ]; then

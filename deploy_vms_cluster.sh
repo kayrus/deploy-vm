@@ -72,12 +72,17 @@ runcmd:
     WINDOWS_VARIANT="IE11.Win8.1.For.Windows.VirtualBox.zip"
     WINDOWS_VARIANT="IE11.Win7.For.Windows.VirtualBox.zip"
     WINDOWS_VARIANT="Microsoft%20Edge.Win10.For.Windows.VirtualBox.zip" # https://az792536.vo.msecnd.net/vms/VMBuild_20150801/VirtualBox/MSEdge/Windows/Microsoft%20Edge.Win10.For.Windows.VirtualBox.zip
-
-    IMG_NAME="IE11-Win7-disk1.vmdk"
-    IMG_URL="https://az412801.vo.msecnd.net/vhd/VMBuild_20141027/VirtualBox/IE11/Windows/IE11.Win7.For.Windows.VirtualBox.zip"
+    WINDOWS_HOSTNAME="IE11Win7"
+    IE_VERSION="IE11"
+    WIN_VERSION="Win8.1"
+    WIN_HOSTNAME="${IE_VERSION}${WIN_VERSION}"
+    IMG_NAME="${IE_VERSION}-${WIN_VERSION}-disk1.vmdk"
+    IMG_URL="https://az412801.vo.msecnd.net/vhd/VMBuild_20141027/VirtualBox/${IE_VERSION}/Windows/${IE_VERSION}.${WIN_VERSION}.For.Windows.VirtualBox.zip"
     DISK_BUS="ide"
     DISK_FORMAT="vmdk"
     NETWORK_DEVICE="rtl8139"
+    RAM=1024
+    CPUs=2
     SKIP_CLOUD_CONFIG=true
     ;;
   *)
@@ -140,8 +145,8 @@ IMG_PATH=${HOME}/libvirt_images/${OS_NAME}
 DISK_BUS=${DISK_BUS:-virtio}
 NETWORK_DEVICE=${NETWORK_DEVICE:-virtio}
 DISK_FORMAT=${DISK_FORMAT:-qcow2}
-RAM=512
-CPUs=1
+RAM=${RAM:-512}
+CPUs=${CPUs:-1}
 
 IMG_EXTENSION=""
 if [[ "${IMG_URL}" =~ \.([a-z0-9]+)$ ]]; then
@@ -154,7 +159,7 @@ case "${IMG_EXTENSION}" in
   xz)
     DECOMPRESS="| xzcat";;
   zip)
-    DECOMPRESS="| bsdtar -Oxf - 'IE11 - Win7.ova' | tar -Oxf - 'IE11 - Win7-disk1.vmdk'";;
+    DECOMPRESS="| bsdtar -Oxf - '${IE_VERSION} - ${WIN_VERSION}.ova' | tar -Oxf - '${IE_VERSION} - ${WIN_VERSION}-disk1.vmdk'";;
   *)
     DECOMPRESS="";;
 esac
@@ -214,6 +219,8 @@ for SEQ in $(seq 1 $2); do
       -rock \
       $IMG_PATH/$VM_HOSTNAME/user-data \
       $IMG_PATH/$VM_HOSTNAME/meta-data || (echo "Failed to create ISO image"; exit 1)
+    echo -e "#!/bin/sh\nmkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/cidata.iso $IMG_PATH/$VM_HOSTNAME" > $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
+    chmod +x $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
     virsh pool-refresh $OS_NAME
     CC_DISK="--disk path=$IMG_PATH/$VM_HOSTNAME/cidata.iso,device=cdrom"
   fi
