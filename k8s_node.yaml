@@ -92,10 +92,10 @@ coreos:
         Description=Setup Kubelet Environment
         Requires=etcd2.service
         After=etcd2.service
-        ConditionPathExists=!/etc/kubernetes/worker-kubeconfig.yaml
+        ConditionFileNotEmpty=!/etc/kubernetes/worker-kubeconfig.yaml
         [Service]
         ExecStartPre=-/usr/bin/mkdir -p /etc/kubernetes
-        ExecStart=/usr/bin/bash -c "while true; do etcdctl get /kubeconfig > /etc/kubernetes/worker-kubeconfig.yaml && exit 0; sleep 1; done"
+        ExecStart=/usr/bin/bash -c "while true; do etcdctl get /kubeconfig > /etc/kubernetes/worker-kubeconfig.yaml && [ -s /etc/kubernetes/worker-kubeconfig.yaml ] && exit 0; sleep 1; done"
         ExecStartPost=/usr/bin/chmod 600 /etc/kubernetes/worker-kubeconfig.yaml
         RemainAfterExit=yes
         Type=oneshot
