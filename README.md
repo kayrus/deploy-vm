@@ -63,8 +63,8 @@ sudo usermod -aG libvirt $USER # for CentOS/Fedora
 #### Add permissions
 
 ```sh
-setfacl -m "u:libvirt-qemu:--x" /home/$USER # for Debian/Ubuntu
-setfacl -m "u:qemu:--x" /home/$USER # for CentOS/Fedora
+setfacl -m "u:libvirt-qemu:--x" $HOME # for Debian/Ubuntu
+setfacl -m "u:qemu:--x" $HOME # for CentOS/Fedora
 ```
 
 #### Remove permissions
@@ -72,15 +72,15 @@ setfacl -m "u:qemu:--x" /home/$USER # for CentOS/Fedora
 ##### Remove ACL entries only for libvirt
 
 ```sh
-setfacl -m "u:libvirt-qemu:---" /home/$USER # for Debian/Ubuntu
-setfacl -m "u:qemu:---" /home/$USER # for CentOS/Fedora
+setfacl -m "u:libvirt-qemu:---" $HOME # for Debian/Ubuntu
+setfacl -m "u:qemu:---" $HOME # for CentOS/Fedora
 ```
 
 ##### Remove all custom ACL entries
 
 ```sh
-setfacl -b /home/$USER
-getfacl /home/$USER
+setfacl -b $HOME
+getfacl $HOME
 ```
 
 ### Groups solution
@@ -97,7 +97,7 @@ chmod g+x $HOME
 
 ```sh
 sudo usermod -G "" libvirt-qemu # for Debian/Ubuntu
-sudo usermod -G "" qemu # for Debian/Ubuntu
+sudo usermod -G "kvm" qemu # for CentOS/Fedora
 chmod g-x $HOME
 ```
 
