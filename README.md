@@ -24,6 +24,12 @@ For the Windows VM support install `bsdtar` (this tool allows to extract zip arc
 sudo yum install bsdtar
 ```
 
+This string inside your `~/.profile` will allow you to use `virsh`:
+
+```sh
+export LIBVIRT_DEFAULT_URI=qemu:///system
+```
+
 ## Configure local resolver to use libvirt's dnsmasq
 
 * Ubuntu/Debian
@@ -52,14 +58,6 @@ sudo usermod -aG libvirt $USER # for CentOS/Fedora
 
 ## Allow libvirt to read VMs images in your home directory
 
-### Groups solution
-
-```sh
-sudo usermod -aG $USER libvirt-qemu # for Debian/Ubuntu
-sudo usermod -aG $USER qemu # for CentOS/Fedora
-chmod g+x $HOME
-```
-
 ### ACL solution
 
 #### Add permissions
@@ -83,6 +81,24 @@ setfacl -m "u:qemu:---" /home/$USER # for CentOS/Fedora
 ```sh
 setfacl -b /home/$USER
 getfacl /home/$USER
+```
+
+### Groups solution
+
+#### Add permissions
+
+```sh
+sudo usermod -aG $USER libvirt-qemu # for Debian/Ubuntu
+sudo usermod -aG $USER qemu # for CentOS/Fedora
+chmod g+x $HOME
+```
+
+#### Remove permissions
+
+```sh
+sudo usermod -G "" libvirt-qemu # for Debian/Ubuntu
+sudo usermod -G "" qemu # for Debian/Ubuntu
+chmod g-x $HOME
 ```
 
 ## Configure virsh environment
