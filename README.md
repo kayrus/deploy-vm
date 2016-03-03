@@ -114,7 +114,7 @@ cat dot_ssh_config >> ~/.ssh/config
 chmod 600 ~/.ssh/config
 ```
 
-## Run CoreOS VMs cluster (works with all deploy scripts) of 3 nodes
+## Run CoreOS VMs cluster of 3 nodes
 
 ```sh
 ./deploy_coreos_cluster.sh 3
