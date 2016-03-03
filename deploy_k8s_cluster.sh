@@ -133,7 +133,7 @@ for SEQ in $(seq 1 $1); do
          s#%K8S_NET%#$K8S_NET#g;\
          s#%K8S_DNS%#$K8S_DNS#g;\
          s#%K8S_DOMAIN%#$K8S_DOMAIN#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
-    if [ -n "$(selinuxenabled 2>/dev/null || echo 'SELinux')" ]; then
+    if [ -n "$(selinuxenabled 2>/dev/null && echo 'SELinux')" ]; then
       # We use ISO configdrive to avoid complicated SELinux conditions
       mkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME
       CONFIG_DRIVE="--disk path=$IMG_PATH/$VM_HOSTNAME/configdrive.iso,device=cdrom"
