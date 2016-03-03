@@ -74,8 +74,21 @@ CHANNEL=alpha
 RELEASE=current
 K8S_RELEASE=v1.1.7
 FLANNEL_TYPE=vxlan
-K8S_NET=10.100.0.0/16
-K8S_DNS=10.100.0.254
+
+ETCD_ENDPOINTS=""
+for SEQ in $(seq 1 $1); do
+  if [ "$SEQ" == "1" ]; then
+		ETCD_ENDPOINTS="http://k8s-master:2379"
+  else
+    NODE_SEQ=$[SEQ-1]
+    ETCD_ENDPOINTS="$ETCD_ENDPOINTS,http://k8s-node-$NODE_SEQ:2379"
+  fi
+done
+
+POD_NETWORK=10.100.0.0/16
+SERVICE_IP_RANGE=10.101.0.0/24
+K8S_SERVICE_IP=10.101.0.1
+DNS_SERVICE_IP=10.101.0.254
 K8S_DOMAIN=skydns.local
 RAM=512
 CPUs=1
@@ -130,12 +143,17 @@ for SEQ in $(seq 1 $1); do
          s#%MASTER_HOST%#$COREOS_MASTER_HOSTNAME#g;\
          s#%K8S_RELEASE%#$K8S_RELEASE#g;\
          s#%FLANNEL_TYPE%#$FLANNEL_TYPE#g;\
-         s#%K8S_NET%#$K8S_NET#g;\
-         s#%K8S_DNS%#$K8S_DNS#g;\
-         s#%K8S_DOMAIN%#$K8S_DOMAIN#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
+         s#%POD_NETWORK%#$POD_NETWORK#g;\
+         s#%SERVICE_IP_RANGE%#$SERVICE_IP_RANGE#g;\
+         s#%K8S_SERVICE_IP%#$K8S_SERVICE_IP#g;\
+         s#%DNS_SERVICE_IP%#$DNS_SERVICE_IP#g;\
+         s#%K8S_DOMAIN%#$K8S_DOMAIN#g;\
+         s#%ETCD_ENDPOINTS%#$ETCD_ENDPOINTS#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
     if [ -n "$(selinuxenabled 2>/dev/null && echo 'SELinux')" ]; then
       # We use ISO configdrive to avoid complicated SELinux conditions
-      mkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME
+      mkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME || (echo "Failed to create ISO image"; exit 1)
+      echo -e "#!/bin/sh\nmkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME" > $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
+      chmod +x $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
       CONFIG_DRIVE="--disk path=$IMG_PATH/$VM_HOSTNAME/configdrive.iso,device=cdrom"
     else
       CONFIG_DRIVE="--filesystem $IMG_PATH/$VM_HOSTNAME/,config-2,type=mount,mode=squash"
@@ -143,6 +161,7 @@ for SEQ in $(seq 1 $1); do
   fi
 
   virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
+  # Make this pool persistent
   (virsh pool-dumpxml $OS_NAME | virsh pool-define /dev/stdin)
   virsh pool-start $OS_NAME > /dev/null 2>&1 || true
 

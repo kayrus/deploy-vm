@@ -11,7 +11,7 @@ print_green() {
 usage() {
   echo "Usage: $0 %os_name% [%vms_prefix%]"
   echo "  Supported OS:"
-  print_green "    * coreos"
+  print_green "    * coreos [k8s]"
   print_green "    * centos"
   print_green "    * ubuntu"
   print_green "    * debian"
