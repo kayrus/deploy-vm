@@ -94,6 +94,21 @@ RAM=512
 CPUs=1
 IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
 IMG_URL="http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
+SIG_URL="http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2.sig"
+PUB_KEY="https://coreos.com/security/image-signing-key/CoreOS_Image_Signing_Key.asc"
+PUB_KEY_ID="50E0885593D2DCB4"
+
+set +e
+if gpg --version > /dev/null 2>&1; then
+  GPG=true
+  if ! gpg --list-sigs $PUB_KEY_ID > /dev/null; then
+    wget -q -O - $PUB_KEY | gpg --import --keyid-format LONG || GPG=false && echo "Warning: can not import GPG public key"
+  fi
+else
+  GPG=false
+  echo "Warning: please install gpg to verify CoreOS images' signatures"
+fi
+set -e
 
 IMG_EXTENSION=""
 if [[ "${IMG_URL}" =~ \.([a-z0-9]+)$ ]]; then
@@ -102,11 +117,11 @@ fi
 
 case "${IMG_EXTENSION}" in
   bz2)
-    DECOMPRESS="| bzcat";;
+    DECOMPRESS="bzcat";;
   xz)
-    DECOMPRESS="| xzcat";;
+    DECOMPRESS="xzcat";;
   *)
-    DECOMPRESS="";;
+    DECOMPRESS="cat";;
 esac
 
 if [ ! -d $IMG_PATH ]; then
@@ -149,7 +164,7 @@ for SEQ in $(seq 1 $1); do
          s#%DNS_SERVICE_IP%#$DNS_SERVICE_IP#g;\
          s#%K8S_DOMAIN%#$K8S_DOMAIN#g;\
          s#%ETCD_ENDPOINTS%#$ETCD_ENDPOINTS#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
-    if [ -n "$(selinuxenabled 2>/dev/null && echo 'SELinux')" ]; then
+    if selinuxenabled 2>/dev/null; then
       # We use ISO configdrive to avoid complicated SELinux conditions
       mkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME || (echo "Failed to create ISO image"; exit 1)
       echo -e "#!/bin/sh\nmkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME" > $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
@@ -165,9 +180,20 @@ for SEQ in $(seq 1 $1); do
   (virsh pool-dumpxml $OS_NAME | virsh pool-define /dev/stdin)
   virsh pool-start $OS_NAME > /dev/null 2>&1 || true
 
+  trap 'rm -f "$IMG_PATH/$IMG_NAME"' INT TERM EXIT
   if [ ! -f $IMG_PATH/$IMG_NAME ]; then
-    eval "wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
+    if [ $GPG ]; then
+      eval "gpg --enable-special-filenames \
+                --verify \
+                --batch \
+                <(wget -q -O - $SIG_URL)\
+                <(wget -O - $IMG_URL | tee >($DECOMPRESS > $IMG_PATH/$IMG_NAME))" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download and verify the image" && exit 1)
+    else
+      eval "wget $IMG_URL -O - | $DECOMPRESS > $IMG_PATH/$IMG_NAME" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download the image" && exit 1)
+    fi
   fi
+  trap - INT TERM EXIT
+  trap
 
   if [ ! -f $IMG_PATH/${VM_HOSTNAME}.qcow2 ]; then
     virsh pool-refresh $OS_NAME
