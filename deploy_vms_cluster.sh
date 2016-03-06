@@ -138,6 +138,7 @@ else
   print_green "Will use this path to SSH public key: $PUB_KEY_PATH"
 fi
 
+OPENSTACK_DIR="openstack/latest"
 PUB_KEY=$(cat ${PUB_KEY_PATH})
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
@@ -185,8 +186,8 @@ for SEQ in $(seq 1 $2); do
     FIRST_HOST=$VM_HOSTNAME
   fi
 
-  if [ ! -d $IMG_PATH/$VM_HOSTNAME ]; then
-    mkdir -p $IMG_PATH/$VM_HOSTNAME || (echo "Can not create $IMG_PATH/$VM_HOSTNAME directory" && exit 1)
+  if [ ! -d $IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR ]; then
+    mkdir -p $IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR directory" && exit 1)
   fi
 
   virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
@@ -205,21 +206,20 @@ for SEQ in $(seq 1 $2); do
       (echo "Failed to create ${VM_HOSTNAME}.${DISK_FORMAT} volume image" && exit 1)
     virsh pool-refresh $OS_NAME
   fi
-
-  echo "$CC" > $IMG_PATH/$VM_HOSTNAME/user-data
-  echo -e "instance-id: iid-${VM_HOSTNAME}\nlocal-hostname: ${VM_HOSTNAME}\nhostname: ${VM_HOSTNAME}" > $IMG_PATH/$VM_HOSTNAME/meta-data
+  UUID=$(cat /proc/sys/kernel/random/uuid)
+  echo "$CC" > $IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR/user_data
+  echo -e "{ \"instance-id\": \"iid-${VM_HOSTNAME}\", \"local-hostname\": \"${VM_HOSTNAME}\", \"hostname\": \"${VM_HOSTNAME}\", \"dsmode\": \"local\", \"uuid\": \"$UUID\" }" > $IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR/meta_data.json
 
   CC_DISK=""
   if [ -z $SKIP_CLOUD_CONFIG ]; then
     mkisofs \
       -input-charset utf-8 \
       -output $IMG_PATH/$VM_HOSTNAME/cidata.iso \
-      -volid cidata \
+      -volid config-2 \
       -joliet \
       -rock \
-      $IMG_PATH/$VM_HOSTNAME/user-data \
-      $IMG_PATH/$VM_HOSTNAME/meta-data || (echo "Failed to create ISO image"; exit 1)
-    echo -e "#!/bin/sh\nmkisofs -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/cidata.iso $IMG_PATH/$VM_HOSTNAME" > $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
+      $IMG_PATH/$VM_HOSTNAME || (echo "Failed to create ISO image"; exit 1)
+    echo -e "#!/bin/sh\nmkisofs -input-charset utf-8 -R -V $CC_VOL_ID -o $IMG_PATH/$VM_HOSTNAME/cidata.iso $IMG_PATH/$VM_HOSTNAME" > $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
     chmod +x $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
     virsh pool-refresh $OS_NAME
     CC_DISK="--disk path=$IMG_PATH/$VM_HOSTNAME/cidata.iso,device=cdrom"
