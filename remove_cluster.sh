@@ -16,6 +16,7 @@ usage() {
   print_green "    * ubuntu"
   print_green "    * debian"
   print_green "    * fedora"
+  print_green "    * freebsd"
   print_green "    * windows"
 }
 
@@ -30,6 +31,7 @@ case "$1" in
   ubuntu);;
   debian);;
   fedora);;
+  freebsd);;
   windows)DISK_FORMAT="vmdk";;
   *)
     echo "'$1' OS prefix is not supported"

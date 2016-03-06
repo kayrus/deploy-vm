@@ -12,6 +12,7 @@ usage() {
   print_green "    * debian"
   print_green "    * fedora"
   print_green "    * windows"
+  print_green "    * freebsd"
 }
 
 if [ "$1" == "" ]; then
@@ -60,6 +61,13 @@ runcmd:
     RELEASE=current
     IMG_NAME="ubuntu_${CHANNEL}_${RELEASE}_qemu_image.img"
     IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
+    ;;
+  freebsd)
+    CHANNEL=10.2
+    #SKIP_CLOUD_CONFIG=true
+    #NETWORK_DEVICE="e1000"
+    IMG_NAME="FreeBSD-$CHANNEL-RELEASE-amd64.qcow2"
+    IMG_URL="http://ftp.freebsd.org/pub/FreeBSD/releases/VM-IMAGES/$CHANNEL-RELEASE/amd64/Latest/FreeBSD-$CHANNEL-RELEASE-amd64.qcow2.xz"
     ;;
   windows)
     WINDOWS_VARIANT="IE6.XP.For.Windows.VirtualBox.zip"
@@ -201,7 +209,7 @@ for SEQ in $(seq 1 $2); do
 
   if [ ! -f $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} ]; then
     virsh pool-refresh $OS_NAME
-    virsh vol-create-as --pool $OS_NAME --name ${VM_HOSTNAME}.${DISK_FORMAT} --capacity 10G --format ${DISK_FORMAT} --backing-vol $IMG_NAME --backing-vol-format $DISK_FORMAT || \
+    #virsh vol-create-as --pool $OS_NAME --name ${VM_HOSTNAME}.${DISK_FORMAT} --capacity 10G --format ${DISK_FORMAT} --backing-vol $IMG_NAME --backing-vol-format $DISK_FORMAT || \
       qemu-img create -f $DISK_FORMAT -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} || \
       (echo "Failed to create ${VM_HOSTNAME}.${DISK_FORMAT} volume image" && exit 1)
     virsh pool-refresh $OS_NAME
