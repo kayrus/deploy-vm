@@ -81,11 +81,11 @@ set +e
 if gpg --version > /dev/null 2>&1; then
   GPG=true
   if ! gpg --list-sigs $GPG_PUB_KEY_ID > /dev/null; then
-    wget -q -O - $GPG_PUB_KEY | gpg --import --keyid-format LONG || GPG=false && echo "Warning: can not import GPG public key"
+    wget -q -O - $GPG_PUB_KEY | gpg --import --keyid-format LONG || (GPG=false && echo "Warning: can not import GPG public key")
   fi
 else
   GPG=false
-  echo "Warning: please install gpg to verify CoreOS images' signatures"
+  echo "Warning: please install GPG to verify CoreOS images' signatures"
 fi
 set -e
 
