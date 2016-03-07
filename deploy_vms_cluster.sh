@@ -210,9 +210,7 @@ for SEQ in $(seq 1 $2); do
   fi
 
   if [ ! -f $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} ]; then
-    virsh pool-refresh $OS_NAME
-    #virsh vol-create-as --pool $OS_NAME --name ${VM_HOSTNAME}.${DISK_FORMAT} --capacity 10G --format ${DISK_FORMAT} --backing-vol $IMG_NAME --backing-vol-format $DISK_FORMAT || \
-      qemu-img create -f $DISK_FORMAT -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} || \
+    qemu-img create -f $DISK_FORMAT -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} || \
       (echo "Failed to create ${VM_HOSTNAME}.${DISK_FORMAT} volume image" && exit 1)
     virsh pool-refresh $OS_NAME
   fi
