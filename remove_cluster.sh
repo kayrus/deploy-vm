@@ -12,8 +12,12 @@ usage() {
   echo "Usage: $0 %os_name% [%vms_prefix%]"
   echo "  Supported OS:"
   print_green "    * coreos [k8s]"
+  print_green "    * atomic-centos"
+  print_green "    * atomic-fedora"
+  print_green "    * clearlinux"
   print_green "    * centos"
   print_green "    * ubuntu"
+  print_green "    * ubuntu-core"
   print_green "    * debian"
   print_green "    * fedora"
   print_green "    * freebsd"
@@ -27,8 +31,12 @@ fi
 
 case "$1" in
   coreos);;
+  atomic-centos);;
+  atomic-fedora);;
+  clearlinux)DISK_FORMAT="raw";;
   centos);;
   ubuntu);;
+  ubuntu-core);;
   debian);;
   fedora);;
   freebsd);;

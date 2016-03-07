@@ -28,6 +28,20 @@ Host centos?
   UserKnownHostsFile ~/.ssh/known_hosts.centos
   UseRoaming no
 
+Host atomic-centos?
+  User centos
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.atomic-centos
+  UseRoaming no
+
+Host atomic-fedora?
+  User fedora
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.atomic-fedora
+  UseRoaming no
+
 Host debian?
   User debian
   IdentityFile ~/.ssh/id_rsa
@@ -40,4 +54,18 @@ Host fedora?
   IdentityFile ~/.ssh/id_rsa
   StrictHostKeyChecking no
   UserKnownHostsFile ~/.ssh/known_hosts.fedora
+  UseRoaming no
+
+Host clearlinux?
+  User clearlinux
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.clearlinux
+  UseRoaming no
+
+Host ubuntu-core?
+  User ubuntu
+  IdentityFile ~/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile ~/.ssh/known_hosts.ubuntu-core
   UseRoaming no

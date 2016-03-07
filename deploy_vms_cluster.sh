@@ -8,7 +8,11 @@ usage() {
   echo "Usage: $0 %os_name% %cluster_size% [%pub_key_path%]"
   echo "  Supported OS:"
   print_green "    * centos"
+  print_green "    * atomic-centos"
+  print_green "    * atomic-fedora"
+  print_green "    * clearlinux (not yet supported)"
   print_green "    * ubuntu"
+  print_green "    * ubuntu-core (not yet supported)"
   print_green "    * debian"
   print_green "    * fedora"
   print_green "    * windows"
@@ -27,13 +31,34 @@ case "$1" in
     echo "Use ./deploy_coreos_cluster.sh script"
     exit 1
     ;;
+  atomic-centos)
+    BOOT_HOOK="bootcmd:
+  - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
+runcmd:
+  - systemctl restart NetworkManager"
+    RELEASE=7
+    SSH_USER=centos
+    IMG_NAME="CentOS-Atomic-Host-${RELEASE}-GenericCloud.qcow2"
+    IMG_URL="http://cloud.centos.org/centos/${RELEASE}/atomic/images/CentOS-Atomic-Host-${RELEASE}-GenericCloud.qcow2.xz"
+    ;;
+  atomic-fedora)
+    BOOT_HOOK="bootcmd:
+  - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
+runcmd:
+  - systemctl restart NetworkManager"
+    CHANNEL=23
+    RELEASE=20160223
+    SSH_USER=fedora
+    IMG_NAME="CentOS-Atomic-Host-${RELEASE}-GenericCloud.qcow2"
+    IMG_URL="https://download.fedoraproject.org/pub/alt/atomic/stable/Cloud-Images/x86_64/Images/Fedora-Cloud-Atomic-${CHANNEL}-${RELEASE}.x86_64.qcow2"
+    ;;
   centos)
     BOOT_HOOK="bootcmd:
   - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
 runcmd:
   - service network restart"
     RELEASE=7
-    IMG_NAME="CentOS-${RELEASE}-x86_64-GenericCloud.img"
+    IMG_NAME="CentOS-${RELEASE}-x86_64-GenericCloud.qcow2"
     IMG_URL="http://cloud.centos.org/centos/${RELEASE}/images/CentOS-${RELEASE}-x86_64-GenericCloud.qcow2.xz"
     ;;
   fedora)
@@ -53,7 +78,7 @@ runcmd:
     RELEASE=current
     #CHANNEL=testing
     #RELEASE=testing
-    IMG_NAME="${OS_NAME}_${CHANNEL}_${RELEASE}_qemu_image.img"
+    IMG_NAME="debian-${CHANNEL}-openstack-amd64.qcow2"
     IMG_URL="http://cdimage.debian.org/cdimage/openstack/${RELEASE}/debian-${CHANNEL}-openstack-amd64.qcow2"
     ;;
   ubuntu)
@@ -61,15 +86,30 @@ runcmd:
   - service networking restart"
     CHANNEL=xenial
     RELEASE=current
-    IMG_NAME="ubuntu_${CHANNEL}_${RELEASE}_qemu_image.img"
+    IMG_NAME="${CHANNEL}-server-cloudimg-amd64.qcow2"
     IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
+    ;;
+  ubuntu-core)
+    BOOT_HOOK="runcmd:
+  - service networking restart"
+    CHANNEL=15.04
+    RELEASE=current
+    SSH_USER=ubuntu
+    IMG_NAME="core-${CHANNEL}-amd64.qcow2"
+    IMG_URL="https://cloud-images.ubuntu.com/ubuntu-core/${CHANNEL}/core/stable/${RELEASE}/core-stable-amd64-disk1.img"
     ;;
   freebsd)
     CHANNEL=10.2
     #SKIP_CLOUD_CONFIG=true
     #NETWORK_DEVICE="e1000"
-    IMG_NAME="FreeBSD-$CHANNEL-RELEASE-amd64.qcow2"
-    IMG_URL="http://ftp.freebsd.org/pub/FreeBSD/releases/VM-IMAGES/$CHANNEL-RELEASE/amd64/Latest/FreeBSD-$CHANNEL-RELEASE-amd64.qcow2.xz"
+    IMG_NAME="FreeBSD-${CHANNEL}-RELEASE-amd64.qcow2"
+    IMG_URL="http://ftp.freebsd.org/pub/FreeBSD/releases/VM-IMAGES/${CHANNEL}-RELEASE/amd64/Latest/FreeBSD-${CHANNEL}-RELEASE-amd64.qcow2.xz"
+    ;;
+  clearlinux)
+    LATEST=$(curl -s https://download.clearlinux.org/latest)
+    IMG_NAME="clear-${LATEST}-kvm.img"
+    IMG_URL="https://download.clearlinux.org/releases/${LATEST}/clear/clear-${LATEST}-kvm.img.xz"
+    DISK_FORMAT="raw"
     ;;
   windows)
     WINDOWS_VARIANT="IE6.XP.For.Windows.VirtualBox.zip"
@@ -101,6 +141,9 @@ runcmd:
     exit 1
     ;;
 esac
+
+OS_NAME="$1"
+SSH_USER=${SSH_USER:-$OS_NAME}
 
 export LIBVIRT_DEFAULT_URI=qemu:///system
 virsh nodeinfo > /dev/null 2>&1 || (echo "Failed to connect to the libvirt socket"; exit 1)
@@ -249,4 +292,4 @@ for SEQ in $(seq 1 $2); do
 #    --cpu=host
 done
 
-print_green "Use this command to connect to your cluster: 'ssh -i $PRIV_KEY_PATH ${OS_NAME}@$FIRST_HOST'"
+print_green "Use this command to connect to your cluster: 'ssh -i $PRIV_KEY_PATH $SSH_USER@$FIRST_HOST'"
