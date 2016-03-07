@@ -51,6 +51,8 @@ runcmd:
   - service networking restart"
     CHANNEL=8.3.0
     RELEASE=current
+    #CHANNEL=testing
+    #RELEASE=testing
     IMG_NAME="${OS_NAME}_${CHANNEL}_${RELEASE}_qemu_image.img"
     IMG_URL="http://cdimage.debian.org/cdimage/openstack/${RELEASE}/debian-${CHANNEL}-openstack-amd64.qcow2"
     ;;

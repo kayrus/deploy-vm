@@ -95,14 +95,14 @@ CPUs=1
 IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
 IMG_URL="http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
 SIG_URL="http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2.sig"
-PUB_KEY="https://coreos.com/security/image-signing-key/CoreOS_Image_Signing_Key.asc"
-PUB_KEY_ID="50E0885593D2DCB4"
+GPG_PUB_KEY="https://coreos.com/security/image-signing-key/CoreOS_Image_Signing_Key.asc"
+GPG_PUB_KEY_ID="50E0885593D2DCB4"
 
 set +e
 if gpg --version > /dev/null 2>&1; then
   GPG=true
-  if ! gpg --list-sigs $PUB_KEY_ID > /dev/null; then
-    wget -q -O - $PUB_KEY | gpg --import --keyid-format LONG || GPG=false && echo "Warning: can not import GPG public key"
+  if ! gpg --list-sigs $GPG_PUB_KEY_ID > /dev/null; then
+    wget -q -O - $GPG_PUB_KEY | gpg --import --keyid-format LONG || GPG=false && echo "Warning: can not import GPG public key"
   fi
 else
   GPG=false
