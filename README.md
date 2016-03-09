@@ -122,7 +122,7 @@ chmod 600 ~/.ssh/config
 
 `user_data` file works only for CoreOS and contains a template for CoreOS configuration and it configures `etcd2` and `fleet`.
 
-## Run other VMs cluster of 3 nodes
+## Run other VMs
 
 ### Linux
 
@@ -145,20 +145,3 @@ Run one Windows VM
 ```sh
 ./remove_cluster.sh coreos
 ```
-
-## VMs notes for the fleet tests
-
-### CoreOS
-
-Should be run using docker as there is no go binary
-
-### Ubuntu
-
-You have to install these packages inside (Ubuntu 16.04 Xenial is only supported):
-
-```sh
-apt-get update
-apt-get install -y golang-go etcd machinectl
-```
-
-### CentOS
