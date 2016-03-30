@@ -528,13 +528,13 @@ write-files:
       type: Opaque
       data:
         license: %TECTONIC_LICENSE%
-  - path: /etc/kubernetes/tectonic-pull-secret.yml
+  - path: /etc/kubernetes/coreos-pull-secret.yml
     permissions: '0600'
     content: |
       apiVersion: v1
       kind: Secret
       metadata:
-        name: tectonic-pull-secret
+        name: coreos-pull-secret
         namespace: tectonic-system
       type: kubernetes.io/dockercfg
       data:
@@ -735,7 +735,7 @@ coreos:
         ExecStartPre=/usr/bin/curl -s -L -o /etc/kubernetes/tectonic-identity-service.yml -z /etc/kubernetes/tectonic-identity-service.yml https://tectonic.com/enterprise/docs/latest/deployer/files/tectonic-identity-service.yml
         ExecStartPre=/usr/bin/curl -s -L -o /etc/kubernetes/tectonic-console-service.yml -z /etc/kubernetes/tectonic-console-service.yml https://tectonic.com/enterprise/docs/latest/deployer/files/tectonic-console-service.yml
         ExecStart=/opt/bin/kubectl create -f /etc/kubernetes/tectonic-license.yml
-        ExecStart=/opt/bin/kubectl create -f /etc/kubernetes/tectonic-pull-secret.yml
+        ExecStart=/opt/bin/kubectl create -f /etc/kubernetes/coreos-pull-secret.yml
         ExecStart=/opt/bin/kubectl create -f /etc/kubernetes/tectonic-services.yml
         ExecStart=/opt/bin/kubectl --namespace=tectonic-system create -f /etc/kubernetes/tectonic-identity-service.yml
         ExecStart=/opt/bin/kubectl --namespace=tectonic-system create -f /etc/kubernetes/tectonic-console-service.yml

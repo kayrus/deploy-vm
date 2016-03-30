@@ -67,12 +67,18 @@ PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
 IMG_PATH=${HOME}/libvirt_images/${OS_NAME}
 RANDOM_PASS=$(openssl rand -base64 12)
-MASTER_USER_DATA_TEMPLATE=${CDIR}/k8s_master.yaml
+TECTONIC_LICENSE=$(cat $CDIR/tectonic.lic 2>/dev/null || true)
+DOCKER_CFG=$(cat $CDIR/docker.cfg 2>/dev/null || true)
+if [ "$TECTONIC" == "true" ]; then
+  MASTER_USER_DATA_TEMPLATE=${CDIR}/k8s_tectonic_master.yaml
+else
+  MASTER_USER_DATA_TEMPLATE=${CDIR}/k8s_master.yaml
+fi
 NODE_USER_DATA_TEMPLATE=${CDIR}/k8s_node.yaml
 ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$1")
 CHANNEL=alpha
 RELEASE=current
-K8S_RELEASE=v1.1.7
+K8S_RELEASE=v1.1.8
 FLANNEL_TYPE=vxlan
 
 ETCD_ENDPOINTS=""
@@ -163,6 +169,8 @@ for SEQ in $(seq 1 $1); do
          s#%K8S_SERVICE_IP%#$K8S_SERVICE_IP#g;\
          s#%DNS_SERVICE_IP%#$DNS_SERVICE_IP#g;\
          s#%K8S_DOMAIN%#$K8S_DOMAIN#g;\
+         s#%TECTONIC_LICENSE%#$TECTONIC_LICENSE#g;\
+         s#%DOCKER_CFG%#$DOCKER_CFG#g;\
          s#%ETCD_ENDPOINTS%#$ETCD_ENDPOINTS#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
     if selinuxenabled 2>/dev/null; then
       # We use ISO configdrive to avoid complicated SELinux conditions

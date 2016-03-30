@@ -122,6 +122,35 @@ chmod 600 ~/.ssh/config
 
 `user_data` file works only for CoreOS and contains a template for CoreOS configuration and it configures `etcd2` and `fleet`.
 
+## Try out Tectonic
+
+Create Tectonoic credentials files:
+
+* `tectonic.lic` # raw base64 encoded licence
+* `docker.cfg` # raw base64 encoded dockercfg
+
+Deploy cluster:
+
+```sh
+TECTONIC=true ./deploy_k8s_cluster.sh %k8s_cluster_size% [%pub_key_path%]
+```
+
+Enter your Kubernetes master node:
+
+```sh
+ssh core@k8s-master # [-i ~/.ssh/id_rsa]
+```
+
+Get Tectonic `admin@example.com` password:
+
+```sh
+kubectl --namespace=tectonic-system get secret tectonic-identity-admin-password -o template --template="{{.data.password}}" | base64 -d && echo
+```
+
+Login Tectonic:
+
+[https://k8s-master:32000]
+
 ## Run other VMs
 
 ### Linux
