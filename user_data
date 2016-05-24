@@ -13,6 +13,11 @@ coreos:
     - name: systemd-networkd.service
       command: restart
     - name: etcd2.service
+      drop-ins:
+        - name: 50-mkdir.conf
+          content: |
+            [Service]
+            ExecStartPre=/usr/bin/install -m 755 -d -o etcd -g etcd /tmp/etcd2
       command: start
     - name: fleet.service
       command: start
@@ -29,8 +34,10 @@ coreos:
     listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
     listen-peer-urls: http://0.0.0.0:2380
     discovery: %DISCOVERY%
+#    data-dir: "/tmp/etcd2"
   fleet:
     public-ip: %HOSTNAME%
     metadata: "hostname=%HOSTNAME%"
+    etcd-request-timeout: 5
   update:
     reboot-strategy: off

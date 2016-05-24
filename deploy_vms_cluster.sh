@@ -263,14 +263,14 @@ for SEQ in $(seq 1 $2); do
 
   CC_DISK=""
   if [ -z $SKIP_CLOUD_CONFIG ]; then
-    mkisofs \
+    genisoimage \
       -input-charset utf-8 \
       -output $IMG_PATH/$VM_HOSTNAME/cidata.iso \
       -volid config-2 \
       -joliet \
       -rock \
       $IMG_PATH/$VM_HOSTNAME || (echo "Failed to create ISO image"; exit 1)
-    echo -e "#!/bin/sh\nmkisofs -input-charset utf-8 -R -V $CC_VOL_ID -o $IMG_PATH/$VM_HOSTNAME/cidata.iso $IMG_PATH/$VM_HOSTNAME" > $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
+    echo -e "#!/bin/sh\ngenisoimage -input-charset utf-8 -R -V $CC_VOL_ID -o $IMG_PATH/$VM_HOSTNAME/cidata.iso $IMG_PATH/$VM_HOSTNAME" > $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
     chmod +x $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
     virsh pool-refresh $OS_NAME
     CC_DISK="--disk path=$IMG_PATH/$VM_HOSTNAME/cidata.iso,device=cdrom"
