@@ -84,10 +84,14 @@ runcmd:
   ubuntu)
     BOOT_HOOK="runcmd:
   - service networking restart"
-    CHANNEL=xenial
+    CHANNEL=yakkety
     RELEASE=current
     IMG_NAME="${CHANNEL}-server-cloudimg-amd64.qcow2"
-    IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
+    if [ "$CHANNEL" == "yakkety" ]; then
+      IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64.img"
+    else
+      IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
+    fi
     ;;
   ubuntu-core)
     BOOT_HOOK="runcmd:
