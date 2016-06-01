@@ -102,27 +102,27 @@ write-files:
       apiVersion: v1
       kind: ReplicationController
       metadata:
-        name: kube-dns-v10
+        name: kube-dns-v11
         namespace: kube-system
         labels:
           k8s-app: kube-dns
-          version: v10
+          version: v11
           kubernetes.io/cluster-service: "true"
       spec:
         replicas: 1
         selector:
           k8s-app: kube-dns
-          version: v10
+          version: v11
         template:
           metadata:
             labels:
               k8s-app: kube-dns
-              version: v10
+              version: v11
               kubernetes.io/cluster-service: "true"
           spec:
             containers:
             - name: etcd
-              image: gcr.io/google_containers/etcd:2.0.9
+              image: gcr.io/google_containers/etcd:2.2.1
               resources:
                 # keep request = limit to keep this container in guaranteed class
                 limits:
@@ -145,7 +145,7 @@ write-files:
               - name: etcd-storage
                 mountPath: /var/etcd/data
             - name: kube2sky
-              image: gcr.io/google_containers/kube2sky:1.12
+              image: gcr.io/google_containers/kube2sky:1.14
               resources:
                 # keep request = limit to keep this container in guaranteed class
                 limits:
@@ -156,7 +156,7 @@ write-files:
                   memory: 50Mi
               args:
               # command = "/kube2sky"
-              - -domain=%K8S_DOMAIN%
+              - --domain=%K8S_DOMAIN%
             - name: skydns
               image: gcr.io/google_containers/skydns:2015-10-13-8c72f8c
               resources:
@@ -169,10 +169,10 @@ write-files:
                   memory: 50Mi
               args:
               # command = "/skydns"
-              - -machines=http://127.0.0.1:4001
-              - -addr=0.0.0.0:53
-              - -ns-rotate=false
-              - -domain=%K8S_DOMAIN%.
+              - --machines=http://127.0.0.1:2379
+              - --addr=0.0.0.0:53
+              - --ns-rotate=false
+              - --domain=%K8S_DOMAIN%.
               ports:
               - containerPort: 53
                 name: dns
@@ -439,11 +439,6 @@ coreos:
             [Unit]
             Requires=flanneld.service
             After=flanneld.service
-        - name: 99-silent.conf
-          content: |
-            [Service]
-            # suppress docker verbosity on worker nodes
-            Environment=DOCKER_OPTS=--log-level=error
     - name: generate-keys.service
       command: start
       content: |
@@ -460,16 +455,30 @@ coreos:
         ExecStartPost=/etc/kubernetes/mk-kubeconfig.sh
         Type=oneshot
         RemainAfterExit=true
+    - name: kubernetes-download@.service
+      content: |
+        [Unit]
+        Description=Download Kubernetes %i binary
+        Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+        Requires=network-online.target
+        After=network-online.target
+        [Service]
+        ExecStartPre=-/usr/bin/mkdir -p /opt/bin
+        ExecStart=/usr/bin/curl -s -L -o /opt/bin/%i -z /opt/bin/%i https://storage.googleapis.com/kubernetes-release/release/%K8S_RELEASE%/bin/linux/amd64/%i
+        ExecStartPost=/usr/bin/chmod +x /opt/bin/%i
+        RemainAfterExit=yes
+        Type=oneshot
     - name: kubelet.service
       command: start
       content: |
         [Unit]
-        Requires=docker.service generate-keys.service
-        After=docker.service generate-keys.service
+        Requires=docker.service generate-keys.service kubernetes-download@kubelet.service
+        After=docker.service generate-keys.service kubernetes-download@kubelet.service
         [Service]
-        ExecStart=/usr/bin/kubelet \
+        ExecStart=/opt/bin/kubelet \
           --api_servers=http://127.0.0.1:8080 \
-          --register-node=false \
+          --register-node=true \
+          --register-schedulable=false \
           --allow-privileged=true \
           --config=/etc/kubernetes/manifests \
           --hostname-override=%H \
@@ -489,31 +498,17 @@ coreos:
         After=kubelet.service
         [Service]
         ExecStartPre=/usr/bin/bash -c "while true; do curl -v http://127.0.0.1:8080/api/v1/namespaces/kube-system -o /dev/null 2>&1 | grep '404 Not Found' > /dev/null && exit 0; sleep 1; done"
-        ExecStart=/usr/bin/bash -c 'curl -XPOST -d\'{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"kube-system"}}\' "http://127.0.0.1:8080/api/v1/namespaces"'
+        ExecStart=/usr/bin/bash -c 'curl -H "Content-Type: application/json" -XPOST -d\'{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"kube-system"}}\' "http://127.0.0.1:8080/api/v1/namespaces"'
         ExecStartPost=/usr/bin/touch /etc/kubernetes/.kube-system-ns.lock
         Type=oneshot
         RemainAfterExit=true
-    - name: download-kubectl.service
-      command: start
-      content: |
-        [Unit]
-        Description=Download kubectl binary
-        Documentation=https://github.com/GoogleCloudPlatform/kubernetes
-        Requires=network-online.target
-        After=network-online.target
-        [Service]
-        ExecStartPre=-/usr/bin/mkdir -p /opt/bin
-        ExecStart=/usr/bin/curl -s -L -o /opt/bin/kubectl -z /opt/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/%K8S_RELEASE%/bin/linux/amd64/kubectl
-        ExecStartPost=/usr/bin/chmod +x /opt/bin/kubectl
-        RemainAfterExit=yes
-        Type=oneshot
     - name: skydns.service
       command: start
       content: |
         [Unit]
         ConditionPathExists=!/etc/kubernetes/.skydns.lock
-        Requires=download-kubectl.service
-        After=download-kubectl.service
+        Requires=kubernetes-download@kubectl.service
+        After=kubernetes-download@kubectl.service
         [Service]
         ExecStartPre=/usr/bin/bash -c "while true; do /opt/bin/kubectl get nodes && exit 0; sleep 1; done"
         ExecStart=/opt/bin/kubectl create -f /etc/kubernetes/skydns.yaml

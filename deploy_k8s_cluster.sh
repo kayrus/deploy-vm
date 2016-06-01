@@ -9,10 +9,13 @@ print_green() {
 }
 
 OS_NAME="coreos"
+PREFIX="k8s"
+MASTER_PREFIX="${PREFIX}-master"
+NODE_PREFIX="${PREFIX}-node"
 
 export LIBVIRT_DEFAULT_URI=qemu:///system
 virsh nodeinfo > /dev/null 2>&1 || (echo "Failed to connect to the libvirt socket"; exit 1)
-virsh list --all --name | grep -q "^${OS_NAME}1$" && (echo "'${OS_NAME}1' VM already exists"; exit 1)
+virsh list --all --name | grep -q "^${PREFIX}-[mn]" && (echo "'$PREFIX-*' VMs already exist"; exit 1)
 
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
@@ -78,7 +81,7 @@ NODE_USER_DATA_TEMPLATE=${CDIR}/k8s_node.yaml
 ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$1")
 CHANNEL=alpha
 RELEASE=current
-K8S_RELEASE=v1.1.8
+K8S_RELEASE=v1.2.4
 FLANNEL_TYPE=vxlan
 
 ETCD_ENDPOINTS=""
@@ -99,10 +102,10 @@ K8S_DOMAIN=skydns.local
 RAM=512
 CPUs=1
 IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
-IMG_URL="http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
-SIG_URL="http://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2.sig"
+IMG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
+SIG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2.sig"
 GPG_PUB_KEY="https://coreos.com/security/image-signing-key/CoreOS_Image_Signing_Key.asc"
-GPG_PUB_KEY_ID="50E0885593D2DCB4"
+GPG_PUB_KEY_ID="48F9B96A2E16137F"
 
 set +e
 if gpg --version > /dev/null 2>&1; then
@@ -146,12 +149,12 @@ fi
 
 for SEQ in $(seq 1 $1); do
   if [ "$SEQ" == "1" ]; then
-    VM_HOSTNAME="k8s-master"
+    VM_HOSTNAME=$MASTER_PREFIX
     COREOS_MASTER_HOSTNAME=$VM_HOSTNAME
     USER_DATA_TEMPLATE=$MASTER_USER_DATA_TEMPLATE
   else
     NODE_SEQ=$[SEQ-1]
-    VM_HOSTNAME="k8s-node-$NODE_SEQ"
+    VM_HOSTNAME="${NODE_PREFIX}-$NODE_SEQ"
     USER_DATA_TEMPLATE=$NODE_USER_DATA_TEMPLATE
   fi
 

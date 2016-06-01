@@ -149,7 +149,10 @@ kubectl --namespace=tectonic-system get secret tectonic-identity-admin-password 
 
 Login Tectonic:
 
-[https://k8s-master:32000]
+[https://k8s-master:32000](https://k8s-master:32000)
+
+Username: `admin@example.com`
+Password: see above
 
 ## Run other VMs
 
