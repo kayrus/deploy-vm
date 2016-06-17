@@ -256,6 +256,8 @@ for SEQ in $(seq 1 $2); do
     trap 'rm -f "$IMG_PATH/$IMG_NAME"' INT TERM EXIT
     eval "wget $IMG_URL -O - $DECOMPRESS > $IMG_PATH/$IMG_NAME" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download image" && exit 1)
   fi
+  trap - INT TERM EXIT
+  trap
 
   if [ ! -f $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} ]; then
     qemu-img create -f $DISK_FORMAT -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} || \
