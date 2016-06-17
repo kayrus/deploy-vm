@@ -74,7 +74,7 @@ runcmd:
   debian)
     BOOT_HOOK="runcmd:
   - service networking restart"
-    CHANNEL=8.4.0
+    CHANNEL=8.5.0
     RELEASE=current
     #CHANNEL=testing
     #RELEASE=testing
