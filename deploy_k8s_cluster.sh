@@ -191,8 +191,8 @@ for SEQ in $(seq 1 $1); do
   (virsh pool-dumpxml $OS_NAME | virsh pool-define /dev/stdin)
   virsh pool-start $OS_NAME > /dev/null 2>&1 || true
 
-  trap 'rm -f "$IMG_PATH/$IMG_NAME"' INT TERM EXIT
   if [ ! -f $IMG_PATH/$IMG_NAME ]; then
+    trap 'rm -f "$IMG_PATH/$IMG_NAME"' INT TERM EXIT
     if [ $GPG ]; then
       eval "gpg --enable-special-filenames \
                 --verify \
