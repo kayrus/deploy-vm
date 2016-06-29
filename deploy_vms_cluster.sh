@@ -86,6 +86,8 @@ runcmd:
   - service networking restart"
     CHANNEL=yakkety
     RELEASE=current
+    # extra size for images
+    IMG_SIZE="10G"
     IMG_NAME="${CHANNEL}-server-cloudimg-amd64.qcow2"
     if [ "$CHANNEL" == "yakkety" ]; then
       IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64.img"
@@ -260,7 +262,7 @@ for SEQ in $(seq 1 $2); do
   trap
 
   if [ ! -f $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} ]; then
-    qemu-img create -f $DISK_FORMAT -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} || \
+    qemu-img create -f $DISK_FORMAT -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT} $IMG_SIZE || \
       (echo "Failed to create ${VM_HOSTNAME}.${DISK_FORMAT} volume image" && exit 1)
     virsh pool-refresh $OS_NAME
   fi
