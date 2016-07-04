@@ -497,7 +497,8 @@ coreos:
         Requires=kubelet.service
         After=kubelet.service
         [Service]
-        ExecStartPre=/usr/bin/bash -c "while true; do curl -v http://127.0.0.1:8080/api/v1/namespaces/kube-system -o /dev/null 2>&1 | grep '404 Not Found' > /dev/null && exit 0; sleep 1; done"
+        # Wait until apiserver start
+        ExecStartPre=/usr/bin/bash -c "while true; do curl -v http://127.0.0.1:8080/api/v1/namespaces/kube-system -o /dev/null 2>&1 | grep '< HTTP/1.1' > /dev/null && exit 0; sleep 1; done"
         ExecStart=/usr/bin/bash -c 'curl -H "Content-Type: application/json" -XPOST -d\'{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"kube-system"}}\' "http://127.0.0.1:8080/api/v1/namespaces"'
         ExecStartPost=/usr/bin/touch /etc/kubernetes/.kube-system-ns.lock
         Type=oneshot
@@ -510,6 +511,7 @@ coreos:
         Requires=kubernetes-download@kubectl.service
         After=kubernetes-download@kubectl.service
         [Service]
+        # Wait until kubectl can access apiserver
         ExecStartPre=/usr/bin/bash -c "while true; do /opt/bin/kubectl get nodes && exit 0; sleep 1; done"
         ExecStart=/opt/bin/kubectl create -f /etc/kubernetes/skydns.yaml
         ExecStartPost=/usr/bin/touch /etc/kubernetes/.skydns.lock

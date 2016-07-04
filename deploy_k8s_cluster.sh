@@ -81,7 +81,7 @@ NODE_USER_DATA_TEMPLATE=${CDIR}/k8s_node.yaml
 ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$1")
 CHANNEL=alpha
 RELEASE=current
-K8S_RELEASE=v1.2.4
+K8S_RELEASE=v1.3.0
 FLANNEL_TYPE=vxlan
 
 ETCD_ENDPOINTS=""
