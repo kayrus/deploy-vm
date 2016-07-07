@@ -56,7 +56,7 @@ USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
 
-IMG_PATH=${HOME}/libvirt_images/${OS_NAME}
+IMG_PATH="${HOME}/libvirt_images/${OS_NAME}"
 DISK_FORMAT=${DISK_FORMAT:-qcow2}
 
 VMS=$(virsh list --all --name | grep "^${VM_PREFIX}" | tr '\n' ' ')
@@ -69,7 +69,7 @@ fi
 VM_LIST=$(print_red "$VMS")
 read -p "Are you sure to remove '$VM_LIST'? (Type 'y' when agree) " -n 1 -r
 echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
   exit 1
 fi
 
@@ -77,11 +77,11 @@ for VM_HOSTNAME in $VMS; do
   virsh destroy $VM_HOSTNAME
   virsh undefine $VM_HOSTNAME
   virsh vol-delete ${VM_HOSTNAME}.${DISK_FORMAT} --pool $OS_NAME
-  rm -rf ${IMG_PATH}/$VM_HOSTNAME
+  rm -rf "${IMG_PATH}/$VM_HOSTNAME"
 
   if [ -f "${HOME}/.ssh/known_hosts.${OS_NAME}" ]; then
     if [ -n "${SUDO_UID}" ]; then
-      sudo -u $USER ssh-keygen -f "${HOME}/.ssh/known_hosts.${VM_PREFIX}" -R $VM_HOSTNAME
+      sudo -u "$USER" ssh-keygen -f "${HOME}/.ssh/known_hosts.${VM_PREFIX}" -R $VM_HOSTNAME
     else
       ssh-keygen -f "${HOME}/.ssh/known_hosts.${VM_PREFIX}" -R $VM_HOSTNAME
     fi

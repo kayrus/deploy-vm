@@ -4,23 +4,23 @@ usage() {
   echo "
 Usage: $0 [options]
 Options:
-    -c|--channel  CHANNEL
-                  channel name (stable/beta/alpha)               [default: stable]
-    -r|--release  RELEASE
-                  CoreOS release                                 [default: current]
-    -s|--size     CLUSTER_SIZE
-                  Amount of virtual machines in a cluster.       [default: 1]
-    -p|--pub-key  PUBLIC_KEY
-                  Path to public key. Private key path will be
-                  detected automatically.                        [default: ~/.ssh/id_rsa.pub]
-    -i|--config   CLOUD_CONFIG
-                  Path to cloud-config.                          [default: ./user_data]
-    -m|--ram      RAM
-                  Amount of memory in megabytes for each VM.     [default: 512]
-    -u|--cpu      CPUs
-                  Amount of CPUs for each VM.                    [default: 1]
-    -v|--verbose  Make verbose
-    -h|--help     this help message
+    -c|--channel        CHANNEL
+                        channel name (stable/beta/alpha)           [default: stable]
+    -r|--release        RELEASE
+                        CoreOS release                             [default: current]
+    -s|--size           CLUSTER_SIZE
+                        Amount of virtual machines in a cluster.   [default: 1]
+    -p|--pub-key        PUBLIC_KEY
+                        Path to public key. Private key path will
+                        be detected automatically.                 [default: ~/.ssh/id_rsa.pub]
+    -i|--config         CLOUD_CONFIG
+                        Path to cloud-config.                      [default: ./user_data]
+    -m|--ram            RAM
+                        Amount of memory in megabytes for each VM. [default: 512]
+    -u|--cpu            CPUs
+                        Amount of CPUs for each VM.                [default: 1]
+    -v|--verbose        Make verbose
+    -h|--help           This help message
 
 This script is a wrapper around libvirt for starting a cluster of CoreOS virtual
 machines.
@@ -39,6 +39,29 @@ check_cmd() {
   which "$1" >/dev/null || { print_red "'$1' command is not available, please install it first, then try again" && exit 1; }
 }
 
+handle_channel_release() {
+  if [ -z "$1" ]; then
+    print_green "$OS_NAME doesn't use channel"
+  else
+    : ${CHANNEL:=$1}
+    if [ -n "$OPTVAL_CHANNEL" ]; then
+      CHANNEL=$OPTVAL_CHANNEL
+    else
+      print_green "Using default $CHANNEL channel for $OS_NAME"
+    fi
+  fi
+  if [ -z "$2" ]; then
+    print_green "$OS_NAME doesn't use release"
+  else
+    : ${RELEASE:=$2}
+    if [ -n "$OPTVAL_RELEASE" ]; then
+      RELEASE=$OPTVAL_RELEASE
+    else
+      print_green "Using default $RELEASE release for $OS_NAME"
+    fi
+  fi
+}
+
 check_cmd wget
 check_cmd virsh
 check_cmd virt-install
@@ -46,44 +69,53 @@ check_cmd qemu-img
 check_cmd genisoimage
 check_cmd xzcat
 check_cmd bzcat
+check_cmd cut
+check_cmd sed
 
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
 HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
 
+trap usage EXIT
+
 while [ $# -ge 1 ]; do
-    case "$1" in
-        -c|--channel)
-            OPTVAL_CHANNEL="$2"
-            shift 2 ;;
-        -r|--release)
-            OPTVAL_RELEASE="$2"
-            shift 2 ;;
-        -s|--cluster-size)
-            OPTVAL_CLUSTER_SIZE="$2"
-            shift 2 ;;
-        -p|--pub-key)
-            OPTVAL_PUB_KEY="$2"
-            shift 2 ;;
-        -i|--config)
-            OPTVAL_CLOUD_CONFIG="$2"
-            shift 2 ;;
-        -m|--ram)
-            OPTVAL_RAM="$2"
-            shift 2 ;;
-        -u|--cpu)
-            OPTVAL_CPU="$2"
-            shift 2 ;;
-        -v|--verbose)
-            set -x
-            shift ;;
-        -h|-help|--help)
-            usage
-            exit ;;
-        *)
-            break ;;
-    esac
+  case "$1" in
+    -c|--channel)
+      OPTVAL_CHANNEL="$2"
+      shift 2 ;;
+    -r|--release)
+      OPTVAL_RELEASE="$2"
+      shift 2 ;;
+    -s|--cluster-size)
+      OPTVAL_CLUSTER_SIZE="$2"
+      shift 2 ;;
+    -p|--pub-key)
+      OPTVAL_PUB_KEY="$2"
+      shift 2 ;;
+    -i|--config)
+      OPTVAL_CLOUD_CONFIG="$2"
+      shift 2 ;;
+    -m|--ram)
+      OPTVAL_RAM="$2"
+      shift 2 ;;
+    -u|--cpu)
+      OPTVAL_CPU="$2"
+      shift 2 ;;
+    -v|--verbose)
+      set -x
+      shift ;;
+    -h|-help|--help)
+      usage
+      trap - EXIT
+      trap
+      exit ;;
+    *)
+      break ;;
+  esac
 done
+
+trap - EXIT
+trap
 
 OS_NAME="coreos"
 
@@ -122,7 +154,7 @@ if [[ -z "$INIT_PUB_KEY" || ! -f "$INIT_PUB_KEY" ]]; then
     if [ -f "$PRIV_KEY_PATH" ]; then
       print_green "Found private key, generating public key..."
       if [ -n "$SUDO_UID" ]; then
-        sudo -u "$USER" ssh-keygen -y -f "$PRIV_KEY_PATH" | sudo -u $USER tee "${PUB_KEY_PATH}" > /dev/null
+        sudo -u "$USER" ssh-keygen -y -f "$PRIV_KEY_PATH" | sudo -u "$USER" tee "${PUB_KEY_PATH}" > /dev/null
       else
         ssh-keygen -y -f "$PRIV_KEY_PATH" > "${PUB_KEY_PATH}"
       fi
@@ -140,6 +172,7 @@ else
   print_green "Will use following path to SSH public key: $PUB_KEY_PATH"
 fi
 
+OPENSTACK_DIR="openstack/latest"
 PUB_KEY=$(cat "${PUB_KEY_PATH}")
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
@@ -148,25 +181,17 @@ RANDOM_PASS=$(openssl rand -base64 12)
 
 : ${USER_DATA_TEMPLATE:="${CDIR}/user_data"}
 if [ -n "$OPTVAL_CLOUD_CONFIG" ]; then
-    if [ -f "$OPTVAL_CLOUD_CONFIG" ]; then
-      USER_DATA_TEMPLATE=$OPTVAL_CLOUD_CONFIG
-    else
-      print_red "Custom cloud-config specified, but it is not available"
-      print_red "Will use default cloud-config path (${USER_DATA_TEMPLATE})"
-    fi
+  if [ -f "$OPTVAL_CLOUD_CONFIG" ]; then
+    USER_DATA_TEMPLATE=$OPTVAL_CLOUD_CONFIG
+  else
+    print_red "Custom cloud-config specified, but it is not available"
+    print_red "Will use default cloud-config path (${USER_DATA_TEMPLATE})"
+  fi
 fi
 
 ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$CLUSTER_SIZE")
 
-: ${CHANNEL:=stable}
-if [ -n "$OPTVAL_CHANNEL" ]; then
-  CHANNEL=$OPTVAL_CHANNEL
-fi
-
-: ${RELEASE:=current}
-if [ -n "$OPTVAL_RELEASE" ]; then
-  RELEASE=$OPTVAL_RELEASE
-fi
+handle_channel_release stable current
 
 : ${RAM:=512}
 if [ -n "$OPTVAL_RAM" ]; then
@@ -235,13 +260,13 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
     FIRST_HOST=$VM_HOSTNAME
   fi
 
-  if [ ! -d "$IMG_PATH/$VM_HOSTNAME/openstack/latest" ]; then
-    mkdir -p "$IMG_PATH/$VM_HOSTNAME/openstack/latest" || { print_red "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1; }
+  if [ ! -d "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR" ]; then
+    mkdir -p "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR" || { print_red "Can not create $IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR directory" && exit 1; }
     sed "s#%PUB_KEY%#$PUB_KEY#g;\
          s#%HOSTNAME%#$VM_HOSTNAME#g;\
          s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
          s#%RANDOM_PASS%#$RANDOM_PASS#g;\
-         s#%FIRST_HOST%#$FIRST_HOST#g" "$USER_DATA_TEMPLATE" > "$IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data"
+         s#%FIRST_HOST%#$FIRST_HOST#g" "$USER_DATA_TEMPLATE" > "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR/user_data"
     if selinuxenabled 2>/dev/null; then
       # We use ISO configdrive to avoid complicated SELinux conditions
       genisoimage -input-charset utf-8 -R -V config-2 -o "$IMG_PATH/$VM_HOSTNAME/configdrive.iso" "$IMG_PATH/$VM_HOSTNAME" || { print_red "Failed to create ISO image"; exit 1; }

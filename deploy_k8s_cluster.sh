@@ -1,12 +1,131 @@
 #!/bin/bash -e
 
 usage() {
-  echo "Usage: $0 %cluster_size% [%pub_key_path%]"
+  echo "
+Usage: $0 [options]
+Options:
+    -c|--channel        CHANNEL
+                        channel name (stable/beta/alpha)           [default: stable]
+    -r|--release        RELEASE
+                        CoreOS release                             [default: current]
+    -s|--size           CLUSTER_SIZE
+                        Amount of virtual machines in a cluster.   [default: 1]
+    -p|--pub-key        PUBLIC_KEY
+                        Path to public key. Private key path will
+                        be detected automatically.                 [default: ~/.ssh/id_rsa.pub]
+    -i|--master-config  MASTER_CLOUD_CONFIG
+                        Path to k8s master node cloud-config.      [default: ./k8s_master.yaml]
+    -I|--node-config    NODE_CLOUD_CONFIG
+                        Path to k8s node cloud-config.             [default: ./k8s_node.yaml]
+    -t|--tectonic       TECTONIC
+                        Spawns Tectonic cluster on top of k8s.
+    -m|--ram            RAM
+                        Amount of memory in megabytes for each VM. [default: 512]
+    -u|--cpu            CPUs
+                        Amount of CPUs for each VM.                [default: 1]
+    -v|--verbose        Make verbose
+    -h|--help           This help message
+
+This script is a wrapper around libvirt for starting a cluster of CoreOS virtual
+machines.
+"
+}
+
+print_red() {
+  echo -e "\e[91m$1\e[0m"
 }
 
 print_green() {
   echo -e "\e[92m$1\e[0m"
 }
+
+check_cmd() {
+  which "$1" >/dev/null || { print_red "'$1' command is not available, please install it first, then try again" && exit 1; }
+}
+
+handle_channel_release() {
+  if [ -z "$1" ]; then
+    print_green "$OS_NAME doesn't use channel"
+  else
+    : ${CHANNEL:=$1}
+    if [ -n "$OPTVAL_CHANNEL" ]; then
+      CHANNEL=$OPTVAL_CHANNEL
+    else
+      print_green "Using default $CHANNEL channel for $OS_NAME"
+    fi
+  fi
+  if [ -z "$2" ]; then
+    print_green "$OS_NAME doesn't use release"
+  else
+    : ${RELEASE:=$2}
+    if [ -n "$OPTVAL_RELEASE" ]; then
+      RELEASE=$OPTVAL_RELEASE
+    else
+      print_green "Using default $RELEASE release for $OS_NAME"
+    fi
+  fi
+}
+
+check_cmd wget
+check_cmd virsh
+check_cmd virt-install
+check_cmd qemu-img
+check_cmd genisoimage
+check_cmd xzcat
+check_cmd bzcat
+check_cmd cut
+check_cmd sed
+
+USER_ID=${SUDO_UID:-$(id -u)}
+USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
+HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
+
+trap usage EXIT
+
+while [ $# -ge 1 ]; do
+  case "$1" in
+    -c|--channel)
+      OPTVAL_CHANNEL="$2"
+      shift 2 ;;
+    -r|--release)
+      OPTVAL_RELEASE="$2"
+      shift 2 ;;
+    -s|--cluster-size)
+      OPTVAL_CLUSTER_SIZE="$2"
+      shift 2 ;;
+    -p|--pub-key)
+      OPTVAL_PUB_KEY="$2"
+      shift 2 ;;
+    -i|--master-config)
+      OPTVAL_MASTER_CLOUD_CONFIG="$2"
+      shift 2 ;;
+    -I|--node-config)
+      OPTVAL_NODE_CLOUD_CONFIG="$2"
+      shift 2 ;;
+    -m|--ram)
+      OPTVAL_RAM="$2"
+      shift 2 ;;
+    -u|--cpu)
+      OPTVAL_CPU="$2"
+      shift 2 ;;
+    -t|--tectonic)
+      TECTONIC=true
+      shift ;;
+    -v|--verbose)
+      set -x
+      shift ;;
+    -h|-help|--help)
+      usage
+      trap - EXIT
+      trap
+      exit ;;
+    *)
+      break ;;
+  esac
+done
+
+trap - EXIT
+trap
 
 OS_NAME="coreos"
 PREFIX="k8s"
@@ -14,80 +133,128 @@ MASTER_PREFIX="${PREFIX}-master"
 NODE_PREFIX="${PREFIX}-node"
 
 export LIBVIRT_DEFAULT_URI=qemu:///system
-virsh nodeinfo > /dev/null 2>&1 || (echo "Failed to connect to the libvirt socket"; exit 1)
-virsh list --all --name | grep -q "^${PREFIX}-[mn]" && (echo "'$PREFIX-*' VMs already exist"; exit 1)
+virsh nodeinfo > /dev/null 2>&1 || { print_red "Failed to connect to the libvirt socket"; exit 1; }
+virsh list --all --name | grep -q "^${PREFIX}-[mn]" && { print_red "'$PREFIX-*' VMs already exist"; exit 1; }
 
-USER_ID=${SUDO_UID:-$(id -u)}
-USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
-HOME=$(getent passwd "${USER_ID}" | cut -d: -f6)
+: ${CLUSTER_SIZE:=2}
+if [ -n "$OPTVAL_CLUSTER_SIZE" ]; then
+  if ! [[ "$OPTVAL_CLUSTER_SIZE" =~ ^[0-9]+$ ]]; then
+    print_red "'$OPTVAL_CLUSTER_SIZE' is not a number"
+    usage
+    exit 1
+  fi
+  CLUSTER_SIZE=$OPTVAL_CLUSTER_SIZE
+fi
 
-if [ "$1" == "" ]; then
-  echo "Cluster size is empty"
+if [[ "$CLUSTER_SIZE" -lt "2" ]]; then
+  echo "'$CLUSTER_SIZE' is lower than 2 (minimal k8s cluster size)"
   usage
   exit 1
 fi
 
-if ! [[ $1 =~ ^[0-9]+$ ]]; then
-  echo "'$1' is not a number"
-  usage
-  exit 1
+: ${INIT_PUB_KEY:="$HOME/.ssh/id_rsa.pub"}
+if [ -n "$OPTVAL_PUB_KEY" ]; then
+  INIT_PUB_KEY=$OPTVAL_PUB_KEY
 fi
 
-if [[ "$1" -lt "2" ]]; then
-  echo "'$1' is lower than 2 (minimal k8s cluster size)"
-  usage
-  exit 1
-fi
-
-if [[ -z $2 || ! -f $2 ]]; then
-  echo "SSH public key path is not specified"
-  if [ -n $HOME ]; then
+if [[ -z "$INIT_PUB_KEY" || ! -f "$INIT_PUB_KEY" ]]; then
+  print_red "SSH public key path is not valid or not specified"
+  if [ -n "$HOME" ]; then
     PUB_KEY_PATH="$HOME/.ssh/id_rsa.pub"
   else
-    echo "Can not determine home directory for SSH pub key path"
+    print_red "Can not determine home directory for SSH pub key path"
     exit 1
   fi
 
   print_green "Will use default path to SSH public key: $PUB_KEY_PATH"
-  if [ ! -f $PUB_KEY_PATH ]; then
-    echo "Path $PUB_KEY_PATH doesn't exist"
-    PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
-    if [ -f $PRIV_KEY_PATH ]; then
-      echo "Found private key, generating public key..."
-      sudo -u $USER ssh-keygen -y -f $PRIV_KEY_PATH | sudo -u $USER tee ${PUB_KEY_PATH} > /dev/null
+  if [ ! -f "$PUB_KEY_PATH" ]; then
+    print_red "Path $PUB_KEY_PATH doesn't exist"
+    PRIV_KEY_PATH=$(echo "${PUB_KEY_PATH}" | sed 's#.pub##')
+    if [ -f "$PRIV_KEY_PATH" ]; then
+      print_green "Found private key, generating public key..."
+      if [ -n "$SUDO_UID" ]; then
+        sudo -u "$USER" ssh-keygen -y -f "$PRIV_KEY_PATH" | sudo -u "$USER" tee "${PUB_KEY_PATH}" > /dev/null
+      else
+        ssh-keygen -y -f "$PRIV_KEY_PATH" > "${PUB_KEY_PATH}"
+      fi
     else
-      echo "Generating private and public keys..."
-      sudo -u $USER ssh-keygen -t rsa -N "" -f $PRIV_KEY_PATH
+      print_green "Generating private and public keys..."
+      if [ -n "$SUDO_UID" ]; then
+        sudo -u "$USER" ssh-keygen -t rsa -N "" -f "$PRIV_KEY_PATH"
+      else
+        ssh-keygen -t rsa -N "" -f "$PRIV_KEY_PATH"
+      fi
     fi
   fi
 else
-  PUB_KEY_PATH=$2
-  print_green "Will use this path to SSH public key: $PUB_KEY_PATH"
+  PUB_KEY_PATH="$INIT_PUB_KEY"
+  print_green "Will use following path to SSH public key: $PUB_KEY_PATH"
 fi
 
-PUB_KEY=$(cat ${PUB_KEY_PATH})
+OPENSTACK_DIR="openstack/latest"
+PUB_KEY=$(cat "${PUB_KEY_PATH}")
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
-IMG_PATH=${HOME}/libvirt_images/${OS_NAME}
+IMG_PATH="${HOME}/libvirt_images/${OS_NAME}"
 RANDOM_PASS=$(openssl rand -base64 12)
-TECTONIC_LICENSE=$(cat $CDIR/tectonic.lic 2>/dev/null || true)
-DOCKER_CFG=$(cat $CDIR/docker.cfg 2>/dev/null || true)
+TECTONIC_LICENSE=$(cat "$CDIR/tectonic.lic" 2>/dev/null || true)
+DOCKER_CFG=$(cat "$CDIR/docker.cfg" 2>/dev/null || true)
+
 if [ "$TECTONIC" == "true" ]; then
-  MASTER_USER_DATA_TEMPLATE=${CDIR}/k8s_tectonic_master.yaml
+  : ${MASTER_USER_DATA_TEMPLATE:="${CDIR}/k8s_tectonic_master.yaml"}
 else
-  MASTER_USER_DATA_TEMPLATE=${CDIR}/k8s_master.yaml
+  : ${MASTER_USER_DATA_TEMPLATE:="${CDIR}/k8s_master.yaml"}
 fi
-NODE_USER_DATA_TEMPLATE=${CDIR}/k8s_node.yaml
-ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$1")
-CHANNEL=alpha
-RELEASE=current
+if [ -n "$OPTVAL_MASTER_CLOUD_CONFIG" ]; then
+  if [ -f "$OPTVAL_MASTER_CLOUD_CONFIG" ]; then
+    MASTER_USER_DATA_TEMPLATE=$OPTVAL_MASTER_CLOUD_CONFIG
+  else
+    print_red "Custom master cloud-config specified, but it is not available"
+    print_red "Will use default master cloud-config path (${MASTER_USER_DATA_TEMPLATE})"
+  fi
+fi
+
+: ${NODE_USER_DATA_TEMPLATE:="${CDIR}/k8s_node.yaml"}
+if [ -n "$OPTVAL_NODE_CLOUD_CONFIG" ]; then
+  if [ -f "$OPTVAL_NODE_CLOUD_CONFIG" ]; then
+    NODE_USER_DATA_TEMPLATE=$OPTVAL_NODE_CLOUD_CONFIG
+  else
+    print_red "Custom node cloud-config specified, but it is not available"
+    print_red "Will use default node cloud-config path (${NODE_USER_DATA_TEMPLATE})"
+  fi
+fi
+
+ETCD_DISCOVERY=$(curl -s "https://discovery.etcd.io/new?size=$CLUSTER_SIZE")
+
+handle_channel_release stable current
+
+: ${RAM:=512}
+if [ -n "$OPTVAL_RAM" ]; then
+  if ! [[ "$OPTVAL_RAM" =~ ^[0-9]+$ ]]; then
+    print_red "'$OPTVAL_RAM' is not a valid amount of RAM"
+    usage
+    exit 1
+  fi
+  RAM=$OPTVAL_RAM
+fi
+
+: ${CPUs:=1}
+if [ -n "$OPTVAL_CPU" ]; then
+  if ! [[ "$OPTVAL_CPU" =~ ^[0-9]+$ ]]; then
+    print_red "'$OPTVAL_CPU' is not a valid amount of CPUs"
+    usage
+    exit 1
+  fi
+  CPUs=$OPTVAL_CPU
+fi
+
 K8S_RELEASE=v1.3.0
 FLANNEL_TYPE=vxlan
 
 ETCD_ENDPOINTS=""
 for SEQ in $(seq 1 $1); do
   if [ "$SEQ" == "1" ]; then
-		ETCD_ENDPOINTS="http://k8s-master:2379"
+    ETCD_ENDPOINTS="http://k8s-master:2379"
   else
     NODE_SEQ=$[SEQ-1]
     ETCD_ENDPOINTS="$ETCD_ENDPOINTS,http://k8s-node-$NODE_SEQ:2379"
@@ -99,8 +266,6 @@ SERVICE_IP_RANGE=10.101.0.0/24
 K8S_SERVICE_IP=10.101.0.1
 DNS_SERVICE_IP=10.101.0.254
 K8S_DOMAIN=skydns.local
-RAM=512
-CPUs=1
 IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
 IMG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
 SIG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2.sig"
@@ -111,11 +276,11 @@ set +e
 if gpg --version > /dev/null 2>&1; then
   GPG=true
   if ! gpg --list-sigs $GPG_PUB_KEY_ID > /dev/null; then
-    wget -q -O - $GPG_PUB_KEY | gpg --import --keyid-format LONG || (GPG=false && echo "Warning: can not import GPG public key")
+    wget -q -O - $GPG_PUB_KEY | gpg --import --keyid-format LONG || { GPG=false && print_red "Warning: can not import GPG public key"; }
   fi
 else
   GPG=false
-  echo "Warning: please install GPG to verify CoreOS images' signatures"
+  print_red "Warning: please install GPG to verify CoreOS images' signatures"
 fi
 set -e
 
@@ -133,21 +298,21 @@ case "${IMG_EXTENSION}" in
     DECOMPRESS="cat";;
 esac
 
-if [ ! -d $IMG_PATH ]; then
-  mkdir -p $IMG_PATH || (echo "Can not create $IMG_PATH directory" && exit 1)
+if [ ! -d "$IMG_PATH" ]; then
+  mkdir -p "$IMG_PATH" || { print_red "Can not create $IMG_PATH directory" && exit 1; }
 fi
 
-if [ ! -f $MASTER_USER_DATA_TEMPLATE ]; then
-  echo "$MASTER_USER_DATA_TEMPLATE template doesn't exist"
+if [ ! -f "$MASTER_USER_DATA_TEMPLATE" ]; then
+  print_red "$MASTER_USER_DATA_TEMPLATE template doesn't exist"
   exit 1
 fi
 
-if [ ! -f $NODE_USER_DATA_TEMPLATE ]; then
-  echo "$NODE_USER_DATA_TEMPLATE template doesn't exist"
+if [ ! -f "$NODE_USER_DATA_TEMPLATE" ]; then
+  print_red "$NODE_USER_DATA_TEMPLATE template doesn't exist"
   exit 1
 fi
 
-for SEQ in $(seq 1 $1); do
+for SEQ in $(seq 1 $CLUSTER_SIZE); do
   if [ "$SEQ" == "1" ]; then
     VM_HOSTNAME=$MASTER_PREFIX
     COREOS_MASTER_HOSTNAME=$VM_HOSTNAME
@@ -158,8 +323,8 @@ for SEQ in $(seq 1 $1); do
     USER_DATA_TEMPLATE=$NODE_USER_DATA_TEMPLATE
   fi
 
-  if [ ! -d $IMG_PATH/$VM_HOSTNAME/openstack/latest ]; then
-    mkdir -p $IMG_PATH/$VM_HOSTNAME/openstack/latest || (echo "Can not create $IMG_PATH/$VM_HOSTNAME/openstack/latest directory" && exit 1)
+  if [ ! -d "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR" ]; then
+    mkdir -p "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR" || { print_red "Can not create $IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR directory" && exit 1; }
     sed "s#%PUB_KEY%#$PUB_KEY#g;\
          s#%HOSTNAME%#$VM_HOSTNAME#g;\
          s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
@@ -174,57 +339,57 @@ for SEQ in $(seq 1 $1); do
          s#%K8S_DOMAIN%#$K8S_DOMAIN#g;\
          s#%TECTONIC_LICENSE%#$TECTONIC_LICENSE#g;\
          s#%DOCKER_CFG%#$DOCKER_CFG#g;\
-         s#%ETCD_ENDPOINTS%#$ETCD_ENDPOINTS#g" $USER_DATA_TEMPLATE > $IMG_PATH/$VM_HOSTNAME/openstack/latest/user_data
+         s#%ETCD_ENDPOINTS%#$ETCD_ENDPOINTS#g" "$USER_DATA_TEMPLATE" > "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR/user_data"
     if selinuxenabled 2>/dev/null; then
       # We use ISO configdrive to avoid complicated SELinux conditions
-      genisoimage -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME || (echo "Failed to create ISO image"; exit 1)
-      echo -e "#!/bin/sh\ngenisoimage -input-charset utf-8 -R -V config-2 -o $IMG_PATH/$VM_HOSTNAME/configdrive.iso $IMG_PATH/$VM_HOSTNAME" > $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
-      chmod +x $IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh
-      CONFIG_DRIVE="--disk path=$IMG_PATH/$VM_HOSTNAME/configdrive.iso,device=cdrom"
+      genisoimage -input-charset utf-8 -R -V config-2 -o "$IMG_PATH/$VM_HOSTNAME/configdrive.iso" "$IMG_PATH/$VM_HOSTNAME" || { print_red "Failed to create ISO image"; exit 1; }
+      echo -e "#!/bin/sh\ngenisoimage -input-charset utf-8 -R -V config-2 -o \"$IMG_PATH/$VM_HOSTNAME/configdrive.iso\" \"$IMG_PATH/$VM_HOSTNAME\"" > "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
+      chmod +x "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
+      CONFIG_DRIVE="--disk path=\"$IMG_PATH/$VM_HOSTNAME/configdrive.iso\",device=cdrom"
     else
-      CONFIG_DRIVE="--filesystem $IMG_PATH/$VM_HOSTNAME/,config-2,type=mount,mode=squash"
+      CONFIG_DRIVE="--filesystem \"$IMG_PATH/$VM_HOSTNAME/\",config-2,type=mount,mode=squash"
     fi
   fi
 
-  virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target $IMG_PATH || (echo "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1)
+  virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target "$IMG_PATH" || { print_red "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1; }
   # Make this pool persistent
   (virsh pool-dumpxml $OS_NAME | virsh pool-define /dev/stdin)
   virsh pool-start $OS_NAME > /dev/null 2>&1 || true
 
-  if [ ! -f $IMG_PATH/$IMG_NAME ]; then
+  if [ ! -f "$IMG_PATH/$IMG_NAME" ]; then
     trap 'rm -f "$IMG_PATH/$IMG_NAME"' INT TERM EXIT
     if [ $GPG ]; then
       eval "gpg --enable-special-filenames \
                 --verify \
                 --batch \
-                <(wget -q -O - $SIG_URL)\
-                <(wget -O - $IMG_URL | tee >($DECOMPRESS > $IMG_PATH/$IMG_NAME))" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download and verify the image" && exit 1)
+                <(wget -q -O - \"$SIG_URL\")\
+                <(wget -O - \"$IMG_URL\" | tee >($DECOMPRESS > \"$IMG_PATH/$IMG_NAME\"))" || { rm -f "$IMG_PATH/$IMG_NAME" && print_red "Failed to download and verify the image" && exit 1; }
     else
-      eval "wget $IMG_URL -O - | $DECOMPRESS > $IMG_PATH/$IMG_NAME" || (rm -f $IMG_PATH/$IMG_NAME && echo "Failed to download the image" && exit 1)
+      eval "wget \"$IMG_URL\" -O - | $DECOMPRESS > \"$IMG_PATH/$IMG_NAME\"" || { rm -f "$IMG_PATH/$IMG_NAME" && print_red "Failed to download the image" && exit 1; }
     fi
+    trap - INT TERM EXIT
+    trap
   fi
-  trap - INT TERM EXIT
-  trap
 
-  if [ ! -f $IMG_PATH/${VM_HOSTNAME}.qcow2 ]; then
-    qemu-img create -f qcow2 -b $IMG_PATH/$IMG_NAME $IMG_PATH/${VM_HOSTNAME}.qcow2 || \
-      (echo "Failed to create ${VM_HOSTNAME}.qcow2 volume image" && exit 1)
+  if [ ! -f "$IMG_PATH/${VM_HOSTNAME}.qcow2" ]; then
+    qemu-img create -f qcow2 -b "$IMG_PATH/$IMG_NAME" "$IMG_PATH/${VM_HOSTNAME}.qcow2" || \
+      { print_red "Failed to create ${VM_HOSTNAME}.qcow2 volume image" && exit 1; }
     virsh pool-refresh $OS_NAME
   fi
 
   virt-install \
-    --connect qemu:///system \
+    --connect $LIBVIRT_DEFAULT_URI \
     --import \
     --name $VM_HOSTNAME \
     --ram $RAM \
     --vcpus $CPUs \
     --os-type=linux \
     --os-variant=virtio26 \
-    --disk path=$IMG_PATH/$VM_HOSTNAME.qcow2,format=qcow2,bus=virtio \
+    --disk path="$IMG_PATH/$VM_HOSTNAME.qcow2",format=qcow2,bus=virtio \
     $CONFIG_DRIVE \
     --vnc \
     --noautoconsole \
 #    --cpu=host
 done
 
-print_green "Use this command to connect to your cluster: 'ssh -i $PRIV_KEY_PATH core@$COREOS_MASTER_HOSTNAME'"
+print_green "Use following command to connect to your cluster: 'ssh -i \"$PRIV_KEY_PATH\" core@$COREOS_MASTER_HOSTNAME'"

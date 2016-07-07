@@ -117,7 +117,7 @@ chmod 600 ~/.ssh/config
 ## Run CoreOS VMs cluster of 3 nodes
 
 ```sh
-./deploy_coreos_cluster.sh 3
+./deploy_coreos_cluster.sh -s 3
 ```
 
 `user_data` file works only for CoreOS and contains a template for CoreOS configuration and it configures `etcd2` and `fleet`.
@@ -132,7 +132,7 @@ Create Tectonoic credentials files:
 Deploy cluster:
 
 ```sh
-TECTONIC=true ./deploy_k8s_cluster.sh %k8s_cluster_size% [%pub_key_path%]
+./deploy_k8s_cluster.sh --tectonic
 ```
 
 Enter your Kubernetes master node:
@@ -161,15 +161,15 @@ Password: see above
 Run three CentOS VMs
 
 ```sh
-./deploy_vms_cluster.sh centos 3
+./deploy_vms_cluster.sh -o centos -s 3
 ```
 
 ### Windows
 
-Run one Windows VM
+Run one Windows IE11.Win7 VM
 
 ```sh
-./deploy_vms_cluster.sh windows 1
+./deploy_vms_cluster.sh -o windows -r IE11.Win7
 ```
 
 ## Completely destroy and remove all related VMs cluster data
