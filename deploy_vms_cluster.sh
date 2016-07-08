@@ -240,9 +240,13 @@ runcmd:
     fi
     IE_VERSION=$(echo "$RELEASE" | cut -d. -f1)
     WIN_VERSION=$(echo "$RELEASE" | cut -d. -f2,3)
+    if [ "$WIN_VERSION" == "XP" ]; then
+      WIN_VERSION_EXTRA="Win$WIN_VERSION"
+    else
+      WIN_VERSION_EXTRA=$WIN_VERSION
+    fi
     IMG_NAME="${IE_VERSION}-${WIN_VERSION}-disk1.vmdk"
     if [ "$RELEASE" == "IE11.Win10" ]; then
-      IMG_NAME="${IE_VERSION} - ${WIN_VERSION}-disk1.vmdk"
       IMG_URL="https://az792536.vo.msecnd.net/vms/VMBuild_20150801/VirtualBox/MSEdge/Windows/Microsoft%20Edge.Win10.For.Windows.VirtualBox.zip"
     else
       IMG_URL="https://az412801.vo.msecnd.net/vhd/VMBuild_20141027/VirtualBox/${IE_VERSION}/Windows/${IE_VERSION}.${WIN_VERSION}.For.Windows.VirtualBox.zip"
@@ -375,7 +379,7 @@ case "${IMG_EXTENSION}" in
   xz)
     DECOMPRESS="| xzcat";;
   zip)
-    DECOMPRESS="| bsdtar -Oxf - '${IE_VERSION} - ${WIN_VERSION}.ova' | tar -Oxf - '${IE_VERSION} - ${WIN_VERSION}-disk1.vmdk'";;
+    DECOMPRESS="| bsdtar -Oxf - '${IE_VERSION} - ${WIN_VERSION_EXTRA}.ova' | tar -Oxf - '${IE_VERSION} - ${WIN_VERSION_EXTRA}-disk1.vmdk'";;
   *)
     DECOMPRESS="";;
 esac
