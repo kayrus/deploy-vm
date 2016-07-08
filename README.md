@@ -169,7 +169,7 @@ Run three CentOS VMs
 Run one Windows IE11.Win7 VM
 
 ```sh
-./deploy_vms_cluster.sh -o windows -r IE11.Win7
+./deploy_vms_cluster.sh -o windows -r IE11.Win7 -m 1024 -u 2
 ```
 
 ## Completely destroy and remove all related VMs cluster data
