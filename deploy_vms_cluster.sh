@@ -208,7 +208,7 @@ runcmd:
     IMG_URL="https://cloud-images.ubuntu.com/ubuntu-core/${CHANNEL}/core/stable/${RELEASE}/core-stable-amd64-disk1.img"
     ;;
   freebsd)
-    handle_channel_release 10.2 ''
+    handle_channel_release 10.3 ''
     #SKIP_CLOUD_CONFIG=true
     #NETWORK_DEVICE="e1000"
     IMG_NAME="FreeBSD-${CHANNEL}-RELEASE-amd64.qcow2"
