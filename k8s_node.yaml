@@ -58,6 +58,14 @@ coreos:
 #  fleet:
 #    metadata: "role=node"
   units:
+    - name: tmp-hostpath_pv.mount
+      command: %K8S_HOSTPATH_PROVISIONER_MOUNT_POINT%
+      content: |
+        [Mount]
+        What=/data/k8s
+        Where=/tmp/hostpath_pv
+        Type=none
+        Options=bind
     - name: systemd-networkd.service
       command: restart
     - name: etcd2.service

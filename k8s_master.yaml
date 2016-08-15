@@ -356,6 +356,7 @@ write-files:
           - --master=http://127.0.0.1:8080
           - --service-account-private-key-file=/etc/kubernetes/ssl/apiserver-key.pem
           - --root-ca-file=/etc/kubernetes/ssl/ca.pem
+          - --enable-hostpath-provisioner=%K8S_AUTO_HOSTPATH_PROVISIONER%
           livenessProbe:
             httpGet:
               host: 127.0.0.1
@@ -417,6 +418,14 @@ coreos:
 #  fleet:
 #    metadata: "role=master"
   units:
+    - name: tmp-hostpath_pv.mount
+      command: %K8S_HOSTPATH_PROVISIONER_MOUNT_POINT%
+      content: |
+        [Mount]
+        What=/data/k8s
+        Where=/tmp/hostpath_pv
+        Type=none
+        Options=bind
     - name: systemd-networkd.service
       command: restart
     - name: etcd2.service

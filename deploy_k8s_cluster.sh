@@ -9,7 +9,7 @@ Options:
     -r|--release        RELEASE
                         CoreOS release                             [default: current]
     -s|--size           CLUSTER_SIZE
-                        Amount of virtual machines in a cluster.   [default: 1]
+                        Amount of virtual machines in a cluster.   [default: 2]
     -p|--pub-key        PUBLIC_KEY
                         Path to public key. Private key path will
                         be detected automatically.                 [default: ~/.ssh/id_rsa.pub]
@@ -192,6 +192,15 @@ else
 fi
 
 OPENSTACK_DIR="openstack/latest"
+
+# Enables automatic hostpath provisioner based on claim (test and development feature only)
+K8S_AUTO_HOSTPATH_PROVISIONER=true # true or false
+if [ $K8S_AUTO_HOSTPATH_PROVISIONER ]; then
+  K8S_HOSTPATH_PROVISIONER_MOUNT_POINT="start"
+else
+  K8S_HOSTPATH_PROVISIONER_MOUNT_POINT="stop"
+fi
+
 PUB_KEY=$(cat "${PUB_KEY_PATH}")
 PRIV_KEY_PATH=$(echo ${PUB_KEY_PATH} | sed 's#.pub##')
 CDIR=$(cd `dirname $0` && pwd)
@@ -248,7 +257,7 @@ if [ -n "$OPTVAL_CPU" ]; then
   CPUs=$OPTVAL_CPU
 fi
 
-K8S_RELEASE=v1.3.0
+K8S_RELEASE=v1.3.5
 FLANNEL_TYPE=vxlan
 
 ETCD_ENDPOINTS=""
@@ -337,6 +346,8 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
          s#%K8S_SERVICE_IP%#$K8S_SERVICE_IP#g;\
          s#%DNS_SERVICE_IP%#$DNS_SERVICE_IP#g;\
          s#%K8S_DOMAIN%#$K8S_DOMAIN#g;\
+         s#%K8S_HOSTPATH_PROVISIONER_MOUNT_POINT%#$K8S_HOSTPATH_PROVISIONER_MOUNT_POINT#g;\
+         s#%K8S_AUTO_HOSTPATH_PROVISIONER%#$K8S_AUTO_HOSTPATH_PROVISIONER#g;\
          s#%TECTONIC_LICENSE%#$TECTONIC_LICENSE#g;\
          s#%DOCKER_CFG%#$DOCKER_CFG#g;\
          s#%ETCD_ENDPOINTS%#$ETCD_ENDPOINTS#g" "$USER_DATA_TEMPLATE" > "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR/user_data"

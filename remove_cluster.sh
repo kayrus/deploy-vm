@@ -76,6 +76,8 @@ fi
 for VM_HOSTNAME in $VMS; do
   virsh destroy $VM_HOSTNAME
   virsh undefine $VM_HOSTNAME
+  # Hack when "virsh vol-delete" doesn't have permissions to delete the volume
+  rm -f "${IMG_PATH}/$VM_HOSTNAME.${DISK_FORMAT}"
   virsh vol-delete ${VM_HOSTNAME}.${DISK_FORMAT} --pool $OS_NAME
   rm -rf "${IMG_PATH}/$VM_HOSTNAME"
 
