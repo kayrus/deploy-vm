@@ -30,7 +30,7 @@ write-files:
       # Set permissions for the /etc/kubernetes/ssl directory
       chmod 700 /etc/kubernetes/ssl
       # inherit default 077 umask for the new files
-      docker run --rm -v /etc/kubernetes/ssl:/etc/kubernetes/ssl gcr.io/google_containers/hyperkube:%K8S_RELEASE% setfacl -d -m user::rwx /etc/kubernetes/ssl
+      docker run --rm -v /etc/kubernetes/ssl:/etc/kubernetes/ssl %K8S_IMAGE% setfacl -d -m user::rwx /etc/kubernetes/ssl
       # Kubernetes CA
       openssl genrsa -out $CA_KUBE_KEY 2048
       openssl req -x509 -new -nodes -key $CA_KUBE_KEY -days 10000 -out $CA_KUBE -subj "/CN=kube-ca"
@@ -226,7 +226,7 @@ write-files:
         hostNetwork: true
         containers:
         - name: kube-apiserver
-          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          image: %K8S_IMAGE%
           command:
           - /hyperkube
           - apiserver
@@ -274,7 +274,7 @@ write-files:
         hostNetwork: true
         containers:
         - name: kube-proxy
-          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          image: %K8S_IMAGE%
           command:
           - /hyperkube
           - proxy
@@ -349,7 +349,7 @@ write-files:
       spec:
         containers:
         - name: kube-controller-manager
-          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          image: %K8S_IMAGE%
           command:
           - /hyperkube
           - controller-manager
@@ -390,7 +390,7 @@ write-files:
         hostNetwork: true
         containers:
         - name: kube-scheduler
-          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          image: %K8S_IMAGE%
           command:
           - /hyperkube
           - scheduler
@@ -449,7 +449,7 @@ write-files:
       # Set permissions for the /etc/kubernetes/ssl directory
       chmod 700 /etc/kubernetes/ssl
       # inherit default 077 umask for the new files
-      docker run --rm -v /etc/kubernetes/ssl:/etc/kubernetes/ssl gcr.io/google_containers/hyperkube:%K8S_RELEASE% setfacl -d -m user::rwx /etc/kubernetes/ssl
+      docker run --rm -v /etc/kubernetes/ssl:/etc/kubernetes/ssl %K8S_IMAGE% setfacl -d -m user::rwx /etc/kubernetes/ssl
       # Tectonic CA
       openssl genrsa -out $CA_TEC_KEY 2048
       openssl req -x509 -new -nodes -key $CA_TEC_KEY -days 10000 -out $CA_TEC -subj "/CN=tectonic-ca"

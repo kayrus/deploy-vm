@@ -257,7 +257,8 @@ if [ -n "$OPTVAL_CPU" ]; then
   CPUs=$OPTVAL_CPU
 fi
 
-K8S_RELEASE=v1.3.5
+K8S_RELEASE="v1.3.5"
+K8S_IMAGE="gcr.io/google_containers/hyperkube:${K8S_RELEASE}"
 FLANNEL_TYPE=vxlan
 
 ETCD_ENDPOINTS=""
@@ -340,6 +341,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
          s#%RANDOM_PASS%#$RANDOM_PASS#g;\
          s#%MASTER_HOST%#$COREOS_MASTER_HOSTNAME#g;\
          s#%K8S_RELEASE%#$K8S_RELEASE#g;\
+         s#%K8S_IMAGE%#$K8S_IMAGE#g;\
          s#%FLANNEL_TYPE%#$FLANNEL_TYPE#g;\
          s#%POD_NETWORK%#$POD_NETWORK#g;\
          s#%SERVICE_IP_RANGE%#$SERVICE_IP_RANGE#g;\

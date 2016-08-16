@@ -14,7 +14,7 @@ write-files:
         hostNetwork: true
         containers:
         - name: kube-proxy
-          image: gcr.io/google_containers/hyperkube:%K8S_RELEASE%
+          image: %K8S_IMAGE%
           command:
           - /hyperkube
           - proxy
@@ -66,6 +66,18 @@ coreos:
         Where=/tmp/hostpath_pv
         Type=none
         Options=bind
+    - name: download-flexvolume-plugin.service
+      content: |
+        [Unit]
+        Description=Download HostPath FlexVolume plugin
+        Requires=network-online.target
+        After=network-online.target
+        [Service]
+        ExecStartPre=-/usr/bin/mkdir -p /opt/bin/kubelet-plugins/volume/exec/my~hostpath
+        ExecStart=/usr/bin/curl -s -L -o /opt/bin/kubelet-plugins/volume/exec/my~hostpath/hostpath -z /opt/bin/kubelet-plugins/volume/exec/my~hostpath/hostpath https://github.com/kayrus/scripts/raw/master/hostpath
+        ExecStartPost=/usr/bin/chmod +x /opt/bin/kubelet-plugins/volume/exec/my~hostpath/hostpath
+        RemainAfterExit=yes
+        Type=oneshot
     - name: systemd-networkd.service
       command: restart
     - name: etcd2.service
@@ -131,6 +143,7 @@ coreos:
           --cluster_dns=%DNS_SERVICE_IP% \
           --cluster_domain=%K8S_DOMAIN% \
           --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
+          --volume-plugin-dir=/opt/bin/kubelet-plugins/volume/exec/ \
           --cadvisor-port=0
         Restart=always
         RestartSec=10
