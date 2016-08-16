@@ -67,6 +67,7 @@ coreos:
         Type=none
         Options=bind
     - name: download-flexvolume-plugin.service
+      command: start
       content: |
         [Unit]
         Description=Download HostPath FlexVolume plugin
