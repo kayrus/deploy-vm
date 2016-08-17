@@ -194,7 +194,8 @@ fi
 OPENSTACK_DIR="openstack/latest"
 
 # Enables automatic hostpath provisioner based on claim (test and development feature only)
-K8S_AUTO_HOSTPATH_PROVISIONER=true # true or false
+# Experimental, see more here: https://github.com/kubernetes/kubernetes/pull/30694
+K8S_AUTO_HOSTPATH_PROVISIONER=false # true or false
 if [ $K8S_AUTO_HOSTPATH_PROVISIONER ]; then
   K8S_HOSTPATH_PROVISIONER_MOUNT_POINT="start"
 else

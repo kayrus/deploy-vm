@@ -45,10 +45,20 @@ ismounted() {
 
 attach() {
 	HOSTPATH=$(echo $1 | jq -r '.hostPath')
-
-	if [ ! -d "${HOSTPATH}" ]; then
-		err "{\"status\": \"Failure\", \"message\": \"HostPath ${HOSTPATH} does not exist\"}"
+	POSTFIX=$(echo $1 | jq -r '."kubernetes.io/item/podName"')
+	if [ "x${POSTFIX}" == "xnull" ]; then
+		err "{ \"status\": \"Failure\", \"message\": \"Failed to determine 'kubernetes.io/item/podName'\"}"
 		exit 1
+	fi
+
+	MNT="${HOSTPATH}/${POSTFIX}"
+
+	if [ ! -d "${MNT}" ]; then
+		mkdir -p "${MNT}" >/dev/null 2>&1
+		if [ $? -ne 0 ]; then
+			err "{ \"status\": \"Failure\", \"message\": \"Failed to create ${MNT} directory\"}"
+			exit 1
+		fi
 	fi
 	log "{\"status\": \"Success\", \"device\":\"${HOSTPATH}\"}"
 	exit 0
@@ -63,7 +73,15 @@ domount() {
 	MNTPATH=$1
 	HOSTPATH=$2
 
-	if [ ! -d "${HOSTPATH}" ]; then
+	POSTFIX=$(echo $3 | jq -r '."kubernetes.io/item/podName"')
+	if [ "x${POSTFIX}" == "xnull" ]; then
+		err "{ \"status\": \"Failure\", \"message\": \"Failed to determine 'kubernetes.io/item/podName'\"}"
+		exit 1
+	fi
+
+	MNT="${HOSTPATH}/${POSTFIX}"
+
+	if [ ! -d "${MNT}" ]; then
 		err "{\"status\": \"Failure\", \"message\": \"${HOSTPATH} does not exist\"}"
 		exit 1
 	fi
@@ -73,19 +91,11 @@ domount() {
 		exit 0
 	fi
 
-        if [ ! -d "${HOSTPATH}" ]; then
-		mkdir -p "${HOSTPATH}" >/dev/null 2>&1
-		if [ $? -ne 0 ]; then
-			err "{ \"status\": \"Failure\", \"message\": \"Failed to create ${HOSTPATH} directory\"}"
-			exit 1
-		fi
-	fi
-
 	mkdir -p "${MNTPATH}" &> /dev/null
 
-	mount --bind "${HOSTPATH}" "${MNTPATH}" &> /dev/null
+	mount --bind "${MNT}" "${MNTPATH}" &> /dev/null
 	if [ $? -ne 0 ]; then
-		err "{ \"status\": \"Failure\", \"message\": \"Failed to mount directory ${HOSTPATH} at ${MNTPATH}\"}"
+		err "{ \"status\": \"Failure\", \"message\": \"Failed to mount directory ${MNT} at ${MNTPATH}\"}"
 		exit 1
 	fi
 	log "{\"status\": \"Success\"}"
