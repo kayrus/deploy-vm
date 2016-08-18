@@ -281,7 +281,7 @@ IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
 IMG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
 SIG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2.sig"
 GPG_PUB_KEY="https://coreos.com/security/image-signing-key/CoreOS_Image_Signing_Key.asc"
-GPG_PUB_KEY_ID="48F9B96A2E16137F"
+GPG_PUB_KEY_ID="07F23A2F63D6D4A17F552EF348F9B96A2E16137F"
 
 set +e
 if gpg --version > /dev/null 2>&1; then
