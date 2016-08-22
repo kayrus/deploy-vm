@@ -167,12 +167,13 @@ write-files:
                 requests:
                   cpu: 100m
                   memory: 50Mi
-              args:
-              # command = "/skydns"
-              - --machines=http://127.0.0.1:2379
-              - --addr=0.0.0.0:53
-              - --ns-rotate=false
-              - --domain=%K8S_DOMAIN%.
+              command: ["sh", "-c", "while true; do echo -e \"PUT /v2/keys/skydns/config HTTP/1.1\r\nAccept: */*\r\nContent-Length: 26\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nvalue=%7B%22ndot%22%3A1%7D\" | nc localhost 2379 2>&1 | grep 'HTTP/1.1 200 OK' && /skydns --machines=http://127.0.0.1:2379 --addr=0.0.0.0:53 --ns-rotate=false --domain=%K8S_DOMAIN%. ; sleep 1; done"]
+#              args:
+#              # command = "/skydns"
+#              - --machines=http://127.0.0.1:2379
+#              - --addr=0.0.0.0:53
+#              - --ns-rotate=false
+#              - --domain=%K8S_DOMAIN%.
               ports:
               - containerPort: 53
                 name: dns
