@@ -16,6 +16,7 @@ Options:
                         * ubuntu-core (not yet supported)
                         * debian
                         * fedora
+                        * opensuse
                         * windows
                         * freebsd
     -c|--channel        CHANNEL
@@ -205,6 +206,15 @@ runcmd:
     handle_channel_release 23 20151030
     IMG_NAME="Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
     IMG_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/${CHANNEL}/Cloud/x86_64/Images/Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
+    ;;
+  opensuse)
+    BOOT_HOOK="bootcmd:
+  - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
+runcmd:
+  - service network restart"
+    handle_channel_release '' 13.2
+    IMG_NAME="openSUSE-${RELEASE}-OpenStack-Guest.x86_64.qcow2"
+    IMG_URL="http://download.opensuse.org/repositories/Cloud:/Images:/openSUSE_${RELEASE}/images/openSUSE-${RELEASE}-OpenStack-Guest.x86_64.qcow2"
     ;;
   debian)
     BOOT_HOOK="runcmd:

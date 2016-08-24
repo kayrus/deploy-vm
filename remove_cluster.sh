@@ -20,6 +20,7 @@ usage() {
   print_green "    * ubuntu-core"
   print_green "    * debian"
   print_green "    * fedora"
+  print_green "    * opensuse"
   print_green "    * freebsd"
   print_green "    * windows"
 }
@@ -52,6 +53,7 @@ case "$1" in
   ubuntu-core);;
   debian);;
   fedora);;
+  opensuse);;
   freebsd);;
   windows)DISK_FORMAT="vmdk";;
   *)
