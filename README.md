@@ -202,10 +202,18 @@ ifconfig bridge create
 ifconfig bridge0 add tap0 up
 ```
 
-virt-inst version > 1.4 should use following parameters:
+virt-install version > 1.4 should use following parameters:
 
 ```sh
 --nographic
 --console nmdm,source.master=/dev/nmdm0A,source.slave=/dev/nmdm0B
 --network bridge=bridge0
 ```
+
+and without `--vnc` flag. VNC flag produces following XML:
+
+```xml
+<graphics type="vnc" port="-1" keymap="en-us"/>
+```
+
+which causes `internal error: cannot determine default video type` error message.
