@@ -174,6 +174,13 @@ Run one Windows IE11.Win7 VM
 
 ### FreeBSD guest (experimental)
 
+Download and run FreeBSD:
+
+```sh
+./deploy_vms_cluster.sh -o freebsd # for 10.3 RELEASE
+./deploy_vms_cluster.sh -o freebsd -c 11.0 -r RC1 # for 11.0 RC1
+```
+
 FreeBSD QEMU images don't support `cloud-init`, so you have to configure network and ssh manually through the console:
 
 ```sh

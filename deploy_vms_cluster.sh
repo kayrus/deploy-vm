@@ -235,11 +235,11 @@ runcmd:
     IMG_URL="https://cloud-images.ubuntu.com/ubuntu-core/${CHANNEL}/core/stable/${RELEASE}/core-stable-amd64-disk1.img"
     ;;
   freebsd)
-    handle_channel_release 10.3 ''
+    handle_channel_release 10.3 RELEASE
     #SKIP_CLOUD_CONFIG=true
     #NETWORK_DEVICE="e1000"
-    IMG_NAME="FreeBSD-${CHANNEL}-RELEASE-amd64.qcow2"
-    IMG_URL="http://ftp.freebsd.org/pub/FreeBSD/releases/VM-IMAGES/${CHANNEL}-RELEASE/amd64/Latest/FreeBSD-${CHANNEL}-RELEASE-amd64.qcow2.xz"
+    IMG_NAME="FreeBSD-${CHANNEL}-${RELEASE}-amd64.qcow2"
+    IMG_URL="http://ftp.freebsd.org/pub/FreeBSD/releases/VM-IMAGES/${CHANNEL}-${RELEASE}/amd64/Latest/FreeBSD-${CHANNEL}-${RELEASE}-amd64.qcow2.xz"
     ;;
   clearlinux)
     LATEST=$(curl -s https://download.clearlinux.org/latest)
