@@ -172,17 +172,39 @@ Run one Windows IE11.Win7 VM
 ./deploy_vms_cluster.sh -o windows -r IE11.Win7 -m 1024 -u 2
 ```
 
+### FreeBSD guest (experimental)
+
+FreeBSD QEMU images don't support `cloud-init`, so you have to configure network and ssh manually through the console:
+
+```sh
+dhclient vtnet0
+echo 'ssh_enable=YES' >> /etc/rc.conf
+echo 'ifconfig_DEFAULT=DHCP' >> /etc/rc.conf
+echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
+service sshd start
+```
+
 ## Completely destroy and remove all related VMs cluster data
 
 ```sh
 ./remove_cluster.sh coreos
 ```
 
-## FreeBSD host
-
-Experimental, not finished yet
+## FreeBSD host (experimental)
 
 ```sh
 pkg install bash bzip2 gnupg cdrtools libvirt virt-manager
 kldload vmm
+libvirtd -d
+ifconfig tap create
+ifconfig bridge create
+ifconfig bridge0 add tap0 up
+```
+
+virt-inst version > 1.4 should use following parameters:
+
+```sh
+--nographic
+--console nmdm,source.master=/dev/nmdm0A,source.slave=/dev/nmdm0B
+--network bridge=bridge0
 ```
