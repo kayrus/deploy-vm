@@ -182,6 +182,7 @@ echo 'ssh_enable=YES' >> /etc/rc.conf
 echo 'ifconfig_DEFAULT=DHCP' >> /etc/rc.conf
 echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
 service sshd start
+passwd
 ```
 
 ## Completely destroy and remove all related VMs cluster data
