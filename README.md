@@ -201,7 +201,7 @@ passwd
 ## FreeBSD host (experimental)
 
 ```sh
-pkg install bash bzip2 gnupg cdrtools libvirt virt-manager
+pkg install bash wget bzip2 gnupg cdrtools libvirt qemu virt-manager
 kldload vmm
 libvirtd -d
 ifconfig tap create
