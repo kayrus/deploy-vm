@@ -322,7 +322,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
 
   if [ ! -f "$IMG_PATH/$IMG_NAME" ]; then
     trap 'rm -f "$IMG_PATH/$IMG_NAME"' INT TERM EXIT
-    if [ $GPG = true ]; then
+    if [ "${GPG}" = "true" ]; then
       eval "gpg --enable-special-filenames \
                 --verify \
                 --batch \

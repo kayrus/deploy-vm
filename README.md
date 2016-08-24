@@ -206,15 +206,15 @@ kldload vmm
 libvirtd -d
 ifconfig tap create
 ifconfig bridge create
-ifconfig bridge0 add tap0 up
+ifconfig bridge0 addm tap0 up
 ```
 
 virt-install version > 1.4 should use following parameters:
 
 ```sh
---nographic
---console nmdm,source.master=/dev/nmdm0A,source.slave=/dev/nmdm0B
---network bridge=bridge0
+--nographic \
+--console nmdm,source.master=/dev/nmdm0A,source.slave=/dev/nmdm0B \
+--network bridge=bridge0 \
 ```
 
 and without `--vnc` flag. VNC flag produces following XML:
