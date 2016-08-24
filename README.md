@@ -185,7 +185,7 @@ FreeBSD QEMU images don't support `cloud-init`, so you have to configure network
 
 ```sh
 dhclient vtnet0
-echo 'ssh_enable=YES' >> /etc/rc.conf
+echo 'sshd_enable=YES' >> /etc/rc.conf
 echo 'ifconfig_DEFAULT=DHCP' >> /etc/rc.conf
 echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
 service sshd start
