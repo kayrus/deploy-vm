@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 print_red() {
   echo -e "\e[91m$1\e[0m"
@@ -24,6 +24,19 @@ usage() {
   print_green "    * windows"
 }
 
+check_hypervisor() {
+  export LIBVIRT_DEFAULT_URI=qemu:///system
+  if ! virsh list > /dev/null 2>&1; then
+    export LIBVIRT_DEFAULT_URI=bhyve:///system
+    if ! virsh list > /dev/null 2>&1; then
+      print_red "Failed to connect to the hypervisor socket"
+      exit 1
+    fi
+  fi
+}
+
+check_hypervisor
+
 if [ -z $1 ]; then
   usage
   exit 1
@@ -46,8 +59,6 @@ case "$1" in
     usage
     exit 1;;
 esac
-
-export LIBVIRT_DEFAULT_URI=qemu:///system
 
 OS_NAME=$1
 VM_PREFIX=${2:-$OS_NAME}

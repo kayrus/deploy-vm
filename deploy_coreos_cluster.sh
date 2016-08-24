@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+
+set -e
 
 usage() {
   echo "
@@ -39,6 +41,42 @@ check_cmd() {
   which "$1" >/dev/null || { print_red "'$1' command is not available, please install it first, then try again" && exit 1; }
 }
 
+check_genisoimage() {
+  if which genisoimage >/dev/null; then
+    GENISOIMAGE=$(which genisoimage)
+  else
+    if which mkisofs >/dev/null; then
+      GENISOIMAGE=$(which mkisofs)
+    else
+       print_red "Neither 'genisoimage' nor 'mkisofs' command is available, please install it first, then try again"
+       exit 1
+    fi
+  fi
+}
+
+make_configdrive() {
+  if [ selinuxenabled 2>/dev/null ] || [ "$LIBVIRT_DEFAULT_URI" = "bhyve:///system" ]; then
+    # We use ISO configdrive to avoid complicated SELinux conditions
+    $GENISOIMAGE -input-charset utf-8 -R -V config-2 -o "$IMG_PATH/$VM_HOSTNAME/configdrive.iso" "$IMG_PATH/$VM_HOSTNAME" || { print_red "Failed to create ISO image"; exit 1; }
+    echo -e "#!/bin/sh\n$GENISOIMAGE -input-charset utf-8 -R -V config-2 -o \"$IMG_PATH/$VM_HOSTNAME/configdrive.iso\" \"$IMG_PATH/$VM_HOSTNAME\"" > "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
+    chmod +x "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
+    CONFIG_DRIVE="--disk path=\"$IMG_PATH/$VM_HOSTNAME/configdrive.iso\",device=cdrom"
+  else
+    CONFIG_DRIVE="--filesystem \"$IMG_PATH/$VM_HOSTNAME/\",config-2,type=mount,mode=squash"
+  fi
+}
+
+check_hypervisor() {
+  export LIBVIRT_DEFAULT_URI=qemu:///system
+  if ! virsh list > /dev/null 2>&1; then
+    export LIBVIRT_DEFAULT_URI=bhyve:///system
+    if ! virsh list > /dev/null 2>&1; then
+      print_red "Failed to connect to the hypervisor socket"
+      exit 1
+    fi
+  fi
+}
+
 handle_channel_release() {
   if [ -z "$1" ]; then
     print_green "$OS_NAME doesn't use channel"
@@ -66,11 +104,12 @@ check_cmd wget
 check_cmd virsh
 check_cmd virt-install
 check_cmd qemu-img
-check_cmd genisoimage
 check_cmd xzcat
 check_cmd bzcat
 check_cmd cut
 check_cmd sed
+check_genisoimage
+check_hypervisor
 
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
@@ -119,13 +158,11 @@ trap
 
 OS_NAME="coreos"
 
-export LIBVIRT_DEFAULT_URI=qemu:///system
-virsh nodeinfo > /dev/null 2>&1 || { print_red "Failed to connect to the libvirt socket"; exit 1; }
 virsh list --all --name | grep -q "^${OS_NAME}1$" && { print_red "'${OS_NAME}1' VM already exists"; exit 1; }
 
 : ${CLUSTER_SIZE:=1}
 if [ -n "$OPTVAL_CLUSTER_SIZE" ]; then
-  if ! [[ "$OPTVAL_CLUSTER_SIZE" =~ ^[0-9]+$ ]]; then
+  if [[ ! "$OPTVAL_CLUSTER_SIZE" =~ ^[0-9]+$ ]]; then
     print_red "'$OPTVAL_CLUSTER_SIZE' is not a number"
     usage
     exit 1
@@ -138,7 +175,7 @@ if [ -n "$OPTVAL_PUB_KEY" ]; then
   INIT_PUB_KEY=$OPTVAL_PUB_KEY
 fi
 
-if [[ -z "$INIT_PUB_KEY" || ! -f "$INIT_PUB_KEY" ]]; then
+if [ -z "$INIT_PUB_KEY" ] || [ ! -f "$INIT_PUB_KEY" ]; then
   print_red "SSH public key path is not valid or not specified"
   if [ -n "$HOME" ]; then
     PUB_KEY_PATH="$HOME/.ssh/id_rsa.pub"
@@ -195,7 +232,7 @@ handle_channel_release stable current
 
 : ${RAM:=512}
 if [ -n "$OPTVAL_RAM" ]; then
-  if ! [[ "$OPTVAL_RAM" =~ ^[0-9]+$ ]]; then
+  if [[ ! "$OPTVAL_RAM" =~ ^[0-9]+$ ]]; then
     print_red "'$OPTVAL_RAM' is not a valid amount of RAM"
     usage
     exit 1
@@ -205,7 +242,7 @@ fi
 
 : ${CPUs:=1}
 if [ -n "$OPTVAL_CPU" ]; then
-  if ! [[ "$OPTVAL_CPU" =~ ^[0-9]+$ ]]; then
+  if [[ ! "$OPTVAL_CPU" =~ ^[0-9]+$ ]]; then
     print_red "'$OPTVAL_CPU' is not a valid amount of CPUs"
     usage
     exit 1
@@ -267,15 +304,10 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
          s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
          s#%RANDOM_PASS%#$RANDOM_PASS#g;\
          s#%FIRST_HOST%#$FIRST_HOST#g" "$USER_DATA_TEMPLATE" > "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR/user_data"
-    if selinuxenabled 2>/dev/null; then
-      # We use ISO configdrive to avoid complicated SELinux conditions
-      genisoimage -input-charset utf-8 -R -V config-2 -o "$IMG_PATH/$VM_HOSTNAME/configdrive.iso" "$IMG_PATH/$VM_HOSTNAME" || { print_red "Failed to create ISO image"; exit 1; }
-      echo -e "#!/bin/sh\ngenisoimage -input-charset utf-8 -R -V config-2 -o \"$IMG_PATH/$VM_HOSTNAME/configdrive.iso\" \"$IMG_PATH/$VM_HOSTNAME\"" > "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
-      chmod +x "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
-      CONFIG_DRIVE="--disk path=\"$IMG_PATH/$VM_HOSTNAME/configdrive.iso\",device=cdrom"
-    else
-      CONFIG_DRIVE="--filesystem \"$IMG_PATH/$VM_HOSTNAME/\",config-2,type=mount,mode=squash"
-    fi
+    make_configdrive
+  else
+    print_green "'$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR' directory exists, usigng existing data"
+    make_configdrive
   fi
 
   virsh pool-info $OS_NAME > /dev/null 2>&1 || virsh pool-create-as $OS_NAME dir --target "$IMG_PATH" || { print_red "Can not create $OS_NAME pool at $IMG_PATH target" && exit 1; }
@@ -285,7 +317,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
 
   if [ ! -f "$IMG_PATH/$IMG_NAME" ]; then
     trap 'rm -f "$IMG_PATH/$IMG_NAME"' INT TERM EXIT
-    if [ $GPG ]; then
+    if [ $GPG = true ]; then
       eval "gpg --enable-special-filenames \
                 --verify \
                 --batch \
@@ -304,7 +336,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
     virsh pool-refresh $OS_NAME
   fi
 
-  virt-install \
+  eval virt-install \
     --connect $LIBVIRT_DEFAULT_URI \
     --import \
     --name $VM_HOSTNAME \

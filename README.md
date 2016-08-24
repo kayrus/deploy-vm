@@ -177,3 +177,12 @@ Run one Windows IE11.Win7 VM
 ```sh
 ./remove_cluster.sh coreos
 ```
+
+## FreeBSD host
+
+Experimental, not finished yet
+
+```sh
+pkg install bash bzip2 gnupg cdrtools libvirt virt-manager
+kldload vmm
+```

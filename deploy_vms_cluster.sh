@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+
+set -e
 
 usage() {
   echo "
@@ -50,6 +52,30 @@ check_cmd() {
   which "$1" >/dev/null || { print_red "'$1' command is not available, please install it first, then try again" && exit 1; }
 }
 
+check_genisoimage() {
+  if which genisoimage >/dev/null; then
+    GENISOIMAGE=$(which genisoimage)
+  else
+    if which mkisofs >/dev/null; then
+      GENISOIMAGE=$(which mkisofs)
+    else
+       print_red "Neither 'genisoimage' nor 'mkisofs' command is available, please install it first, then try again"
+       exit 1
+    fi
+  fi
+}
+
+check_hypervisor() {
+  export LIBVIRT_DEFAULT_URI=qemu:///system
+  if ! virsh list > /dev/null 2>&1; then
+    export LIBVIRT_DEFAULT_URI=bhyve:///system
+    if ! virsh list > /dev/null 2>&1; then
+      print_red "Failed to connect to the hypervisor socket"
+      exit 1
+    fi
+  fi
+}
+
 handle_channel_release() {
   if [ -z "$1" ]; then
     print_green "$OS_NAME doesn't use channel"
@@ -77,11 +103,12 @@ check_cmd wget
 check_cmd virsh
 check_cmd virt-install
 check_cmd qemu-img
-check_cmd genisoimage
 check_cmd xzcat
 check_cmd bzcat
 check_cmd cut
 check_cmd sed
+check_genisoimage
+check_hypervisor
 
 USER_ID=${SUDO_UID:-$(id -u)}
 USER=$(getent passwd "${USER_ID}" | cut -d: -f1)
@@ -193,7 +220,7 @@ runcmd:
     # extra size for images
     IMG_SIZE="10G"
     IMG_NAME="${CHANNEL}-server-cloudimg-amd64.qcow2"
-    if [ "$CHANNEL" == "yakkety" ]; then
+    if [ "$CHANNEL" = "yakkety" ]; then
       IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64.img"
     else
       IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
@@ -225,7 +252,7 @@ runcmd:
     WIN_VARIANTS="IE6.XP IE7.Vista IE8.XP IE8.Win7 IE9.Win7 IE10.Win7 IE10.Win8 IE11.Win7 IE11.Win8.1 IE11.Win10"
     handle_channel_release '' IE11.Win7
     for WIN_VARIANT in $WIN_VARIANTS; do
-      if [ "$RELEASE" == "$WIN_VARIANT" ]; then
+      if [ "$RELEASE" = "$WIN_VARIANT" ]; then
         FOUND_RELEASE=true
         break;
       fi
@@ -240,13 +267,13 @@ runcmd:
     fi
     IE_VERSION=$(echo "$RELEASE" | cut -d. -f1)
     WIN_VERSION=$(echo "$RELEASE" | cut -d. -f2,3)
-    if [ "$WIN_VERSION" == "XP" ]; then
+    if [ "$WIN_VERSION" = "XP" ]; then
       WIN_VERSION_EXTRA="Win$WIN_VERSION"
     else
       WIN_VERSION_EXTRA=$WIN_VERSION
     fi
     IMG_NAME="${IE_VERSION}-${WIN_VERSION}-disk1.vmdk"
-    if [ "$RELEASE" == "IE11.Win10" ]; then
+    if [ "$RELEASE" = "IE11.Win10" ]; then
       IMG_URL="https://az792536.vo.msecnd.net/vms/VMBuild_20150801/VirtualBox/MSEdge/Windows/Microsoft%20Edge.Win10.For.Windows.VirtualBox.zip"
     else
       IMG_URL="https://az412801.vo.msecnd.net/vhd/VMBuild_20141027/VirtualBox/${IE_VERSION}/Windows/${IE_VERSION}.${WIN_VERSION}.For.Windows.VirtualBox.zip"
@@ -272,13 +299,11 @@ esac
 
 SSH_USER=${SSH_USER:-$OS_NAME}
 
-export LIBVIRT_DEFAULT_URI=qemu:///system
-virsh nodeinfo > /dev/null 2>&1 || { print_red "Failed to connect to the libvirt socket"; exit 1; }
 virsh list --all --name | grep -q "^${OS_NAME}1$" && { print_red "'${OS_NAME}1' VM already exists"; exit 1; }
 
 : ${CLUSTER_SIZE:=1}
 if [ -n "$OPTVAL_CLUSTER_SIZE" ]; then
-  if ! [[ "$OPTVAL_CLUSTER_SIZE" =~ ^[0-9]+$ ]]; then
+  if [[ ! "$OPTVAL_CLUSTER_SIZE" =~ ^[0-9]+$ ]]; then
     print_red "'$OPTVAL_CLUSTER_SIZE' is not a number"
     usage
     exit 1
@@ -291,7 +316,7 @@ if [ -n "$OPTVAL_PUB_KEY" ]; then
   INIT_PUB_KEY=$OPTVAL_PUB_KEY
 fi
 
-if [[ -z "$INIT_PUB_KEY" || ! -f "$INIT_PUB_KEY" ]]; then
+if [ -z "$INIT_PUB_KEY" ] || [ ! -f "$INIT_PUB_KEY" ]; then
   print_red "SSH public key path is not valid or not specified"
   if [ -n "$HOME" ]; then
     PUB_KEY_PATH="$HOME/.ssh/id_rsa.pub"
@@ -334,13 +359,13 @@ DISK_BUS=${DISK_BUS:-virtio}
 NETWORK_DEVICE=${NETWORK_DEVICE:-virtio}
 DISK_FORMAT=${DISK_FORMAT:-qcow2}
 
-if [[ -n "$OPTVAL_CLOUD_CONFIG" && -f "$OPTVAL_CLOUD_CONFIG" ]]; then
+if [ -n "$OPTVAL_CLOUD_CONFIG" ] && [ -f "$OPTVAL_CLOUD_CONFIG" ]; then
   USER_DATA_TEMPLATE=$OPTVAL_CLOUD_CONFIG
   print_green "Will use custom cloud-config (${USER_DATA_TEMPLATE})"
 fi
 : ${RAM:=512}
 if [ -n "$OPTVAL_RAM" ]; then
-  if ! [[ "$OPTVAL_RAM" =~ ^[0-9]+$ ]]; then
+  if [[ ! "$OPTVAL_RAM" =~ ^[0-9]+$ ]]; then
     print_red "'$OPTVAL_RAM' is not a valid amount of RAM"
     usage
     exit 1
@@ -355,7 +380,7 @@ fi
 
 : ${CPUs:=1}
 if [ -n "$OPTVAL_CPU" ]; then
-  if ! [[ "$OPTVAL_CPU" =~ ^[0-9]+$ ]]; then
+  if [[ ! "$OPTVAL_CPU" =~ ^[0-9]+$ ]]; then
     print_red "'$OPTVAL_CPU' is not a valid amount of CPUs"
     usage
     exit 1
@@ -427,7 +452,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
     virsh pool-refresh $OS_NAME
   fi
   UUID=$(cat /proc/sys/kernel/random/uuid)
-  if [[ -n "$USER_DATA_TEMPLATE" && -f "$USER_DATA_TEMPLATE" ]]; then
+  if [ -n "$USER_DATA_TEMPLATE" ] && [ -f "$USER_DATA_TEMPLATE" ]; then
     sed "s#%PUB_KEY%#$PUB_KEY#g;\
          s#%BOOT_HOOK%#$BOOT_HOOK#g" "$USER_DATA_TEMPLATE" > "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR/user_data"
   else
@@ -437,20 +462,20 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
 
   CC_DISK=""
   if [ -z $SKIP_CLOUD_CONFIG ]; then
-    genisoimage \
+    $GENISOIMAGE \
       -input-charset utf-8 \
       -output "$IMG_PATH/$VM_HOSTNAME/cidata.iso" \
       -volid config-2 \
       -joliet \
       -rock \
       "$IMG_PATH/$VM_HOSTNAME" || { print_red "Failed to create ISO image"; exit 1; }
-    echo -e "#!/bin/sh\ngenisoimage -input-charset utf-8 -R -V $CC_VOL_ID -o \"$IMG_PATH/$VM_HOSTNAME/cidata.iso\" \"$IMG_PATH/$VM_HOSTNAME\"" > "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
+    echo -e "#!/bin/sh\n$GENISOIMAGE -input-charset utf-8 -R -V $CC_VOL_ID -o \"$IMG_PATH/$VM_HOSTNAME/cidata.iso\" \"$IMG_PATH/$VM_HOSTNAME\"" > "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
     chmod +x "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
     virsh pool-refresh $OS_NAME
     CC_DISK="--disk path=\"$IMG_PATH/$VM_HOSTNAME/cidata.iso\",device=cdrom"
   fi
 
-  virt-install \
+  eval virt-install \
     --connect $LIBVIRT_DEFAULT_URI \
     --import \
     --name $VM_HOSTNAME \
