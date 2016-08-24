@@ -472,7 +472,12 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
     echo -e "#!/bin/sh\n$GENISOIMAGE -input-charset utf-8 -R -V $CC_VOL_ID -o \"$IMG_PATH/$VM_HOSTNAME/cidata.iso\" \"$IMG_PATH/$VM_HOSTNAME\"" > "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
     chmod +x "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
     virsh pool-refresh $OS_NAME
-    CC_DISK="--disk path=\"$IMG_PATH/$VM_HOSTNAME/cidata.iso\",device=cdrom"
+    if [ "$LIBVIRT_DEFAULT_URI" = "bhyve:///system" ]; then
+      DISK_TYPE="bus=sata"
+    else
+      DISK_TYPE="device=cdrom"
+    fi
+    CC_DISK="--disk path=\"$IMG_PATH/$VM_HOSTNAME/cidata.iso\",${DISK_TYPE}"
   fi
 
   eval virt-install \

@@ -64,7 +64,12 @@ make_configdrive() {
     $GENISOIMAGE -input-charset utf-8 -R -V config-2 -o "$IMG_PATH/$VM_HOSTNAME/configdrive.iso" "$IMG_PATH/$VM_HOSTNAME" || { print_red "Failed to create ISO image"; exit 1; }
     echo -e "#!/bin/sh\n$GENISOIMAGE -input-charset utf-8 -R -V config-2 -o \"$IMG_PATH/$VM_HOSTNAME/configdrive.iso\" \"$IMG_PATH/$VM_HOSTNAME\"" > "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
     chmod +x "$IMG_PATH/$VM_HOSTNAME/rebuild_iso.sh"
-    CONFIG_DRIVE="--disk path=\"$IMG_PATH/$VM_HOSTNAME/configdrive.iso\",device=cdrom"
+    if [ "$LIBVIRT_DEFAULT_URI" = "bhyve:///system" ]; then
+      DISK_TYPE="bus=sata"
+    else
+      DISK_TYPE="device=cdrom"
+    fi
+    CONFIG_DRIVE="--disk path=\"$IMG_PATH/$VM_HOSTNAME/configdrive.iso\",${DISK_TYPE}"
   else
     CONFIG_DRIVE="--filesystem \"$IMG_PATH/$VM_HOSTNAME/\",config-2,type=mount,mode=squash"
   fi
