@@ -192,12 +192,6 @@ service sshd start
 passwd
 ```
 
-## Completely destroy and remove all related VMs cluster data
-
-```sh
-./remove_cluster.sh coreos
-```
-
 ## FreeBSD host (experimental)
 
 ```sh
@@ -224,3 +218,9 @@ and without `--vnc` flag. VNC flag produces following XML:
 ```
 
 which causes `internal error: cannot determine default video type` error message.
+
+## Completely destroy and remove all related VMs cluster data
+
+```sh
+./remove_cluster.sh coreos
+```
