@@ -301,7 +301,7 @@ if [ -n "$OPTVAL_CPU" ]; then
   CPUs=$OPTVAL_CPU
 fi
 
-K8S_RELEASE="v1.4.3"
+K8S_RELEASE="v1.4.4"
 K8S_IMAGE="gcr.io/google_containers/hyperkube:${K8S_RELEASE}"
 FLANNEL_TYPE=vxlan
 
