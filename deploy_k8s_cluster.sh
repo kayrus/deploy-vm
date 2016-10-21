@@ -446,7 +446,7 @@ done
 
 if [ "x${SKIP_SSH_CHECK}" = "x" ]; then
   MAX_SSH_TRIES=50
-  MAX_KUBECTL_TRIES=200
+  MAX_KUBECTL_TRIES=300
   for SEQ in $(seq 1 $CLUSTER_SIZE); do
     if [ "$SEQ" = "1" ]; then
       VM_HOSTNAME=$MASTER_PREFIX
