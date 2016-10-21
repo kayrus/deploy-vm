@@ -175,6 +175,7 @@ OS_NAME="coreos"
 PREFIX="k8s"
 MASTER_PREFIX="${PREFIX}-master"
 NODE_PREFIX="${PREFIX}-node"
+SSH_USER="core"
 
 virsh list --all --name | grep -q "^${PREFIX}-[mn]" && { print_red "'$PREFIX-*' VMs already exist"; exit 1; }
 
@@ -300,7 +301,7 @@ if [ -n "$OPTVAL_CPU" ]; then
   CPUs=$OPTVAL_CPU
 fi
 
-K8S_RELEASE="v1.3.5"
+K8S_RELEASE="v1.4.3"
 K8S_IMAGE="gcr.io/google_containers/hyperkube:${K8S_RELEASE}"
 FLANNEL_TYPE=vxlan
 
@@ -445,6 +446,7 @@ done
 
 if [ "x${SKIP_SSH_CHECK}" = "x" ]; then
   MAX_SSH_TRIES=50
+  MAX_KUBECTL_TRIES=200
   for SEQ in $(seq 1 $CLUSTER_SIZE); do
     if [ "$SEQ" = "1" ]; then
       VM_HOSTNAME=$MASTER_PREFIX
@@ -457,10 +459,11 @@ if [ "x${SKIP_SSH_CHECK}" = "x" ]; then
       TRY=$((TRY+1))
       if [ $TRY -gt $MAX_SSH_TRIES ]; then
         print_red "Can not connect to ssh, exiting..."
+        exit 1
       fi
       echo "Trying to connect to ${VM_HOSTNAME} VM, #${TRY} of #${MAX_SSH_TRIES}..."
       set +e
-      RES=$(LANG=en_US ssh -l $SSH_USER -o ConnectTimeout=1 -o PasswordAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${PRIV_KEY_PATH} $VM_HOSTNAME "uptime" 2>&1)
+      RES=$(LANG=en_US ssh -l $SSH_USER -o BatchMode=yes -o ConnectTimeout=1 -o PasswordAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${PRIV_KEY_PATH} $VM_HOSTNAME "uptime" 2>&1)
       RES_CODE=$?
       set -e
       if [ $RES_CODE -eq 0 ]; then
@@ -470,7 +473,34 @@ if [ "x${SKIP_SSH_CHECK}" = "x" ]; then
       fi
     done
   done
-  print_green "Cluster of $CLUSTER_SIZE $OS_NAME nodes is up and running."
+  print_green "Cluster of $CLUSTER_SIZE $OS_NAME nodes is up and running, waiting for Kubernetes to be ready..."
+  for SEQ in $(seq 1 $CLUSTER_SIZE); do
+    if [ "$SEQ" = "1" ]; then
+      VM_HOSTNAME=$MASTER_PREFIX
+    else
+      NODE_SEQ=$[SEQ-1]
+      VM_HOSTNAME="${NODE_PREFIX}-$NODE_SEQ"
+    fi
+    TRY=0
+    while true; do
+      TRY=$((TRY+1))
+      if [ $TRY -gt $MAX_KUBECTL_TRIES ]; then
+        print_red "Can not verify Kubernetes status, exiting..."
+        exit 1
+      fi
+      echo "Trying to check whether ${VM_HOSTNAME} Kubernetes node is up and running, #${TRY} of #${MAX_KUBECTL_TRIES}..."
+      set +e
+      RES=$(LANG=en_US ssh -l $SSH_USER -o BatchMode=yes -o ConnectTimeout=1 -o PasswordAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${PRIV_KEY_PATH} $MASTER_PREFIX "/opt/bin/kubectl get nodes $VM_HOSTNAME | grep -q Ready" 2>&1)
+      RES_CODE=$?
+      set -e
+      if [ $RES_CODE -eq 0 ]; then
+        break
+      else
+        sleep 1
+      fi
+    done
+  done
+  print_green "Kubernetes cluster is up and running..."
 fi
 
 print_green "Use following command to connect to your cluster: 'ssh -i \"$PRIV_KEY_PATH\" core@$COREOS_MASTER_HOSTNAME'"

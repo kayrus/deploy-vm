@@ -162,6 +162,7 @@ trap - EXIT
 trap
 
 OS_NAME="coreos"
+SSH_USER="core"
 
 virsh list --all --name | grep -q "^${OS_NAME}1$" && { print_red "'${OS_NAME}1' VM already exists"; exit 1; }
 
@@ -365,10 +366,11 @@ if [ "x${SKIP_SSH_CHECK}" = "x" ]; then
       TRY=$((TRY+1))
       if [ $TRY -gt $MAX_SSH_TRIES ]; then
         print_red "Can not connect to ssh, exiting..."
+        exit 1
       fi
       echo "Trying to connect to ${VM_HOSTNAME} VM, #${TRY} of #${MAX_SSH_TRIES}..."
       set +e
-      RES=$(LANG=en_US ssh -l $SSH_USER -o ConnectTimeout=1 -o PasswordAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${PRIV_KEY_PATH} $VM_HOSTNAME "uptime" 2>&1)
+      RES=$(LANG=en_US ssh -l $SSH_USER -o BatchMode=yes -o ConnectTimeout=1 -o PasswordAuthentication=no -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${PRIV_KEY_PATH} $VM_HOSTNAME "uptime" 2>&1)
       RES_CODE=$?
       set -e
       if [ $RES_CODE -eq 0 ]; then
