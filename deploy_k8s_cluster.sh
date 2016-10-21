@@ -303,6 +303,7 @@ fi
 
 K8S_RELEASE="v1.4.4"
 K8S_IMAGE="gcr.io/google_containers/hyperkube:${K8S_RELEASE}"
+#K8S_IMAGE="quay.io/coreos/hyperkube:${K8S_RELEASE}_coreos.0"
 FLANNEL_TYPE=vxlan
 
 ETCD_ENDPOINTS=""
