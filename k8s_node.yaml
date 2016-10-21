@@ -66,19 +66,19 @@ coreos:
         Where=/tmp/hostpath_pv
         Type=none
         Options=bind
-    - name: download-flexvolume-plugin.service
-      command: start
-      content: |
-        [Unit]
-        Description=Download HostPath FlexVolume plugin
-        Requires=network-online.target
-        After=network-online.target
-        [Service]
-        ExecStartPre=-/usr/bin/mkdir -p /opt/bin/kubelet-plugins/volume/exec/my~hostpath
-        ExecStart=/usr/bin/curl -s -L -o /opt/bin/kubelet-plugins/volume/exec/my~hostpath/hostpath -z /opt/bin/kubelet-plugins/volume/exec/my~hostpath/hostpath https://github.com/kayrus/scripts/raw/master/hostpath
-        ExecStartPost=/usr/bin/chmod +x /opt/bin/kubelet-plugins/volume/exec/my~hostpath/hostpath
-        RemainAfterExit=yes
-        Type=oneshot
+#    - name: download-flexvolume-plugin.service
+#      command: start
+#      content: |
+#        [Unit]
+#        Description=Download HostPath FlexVolume plugin
+#        Requires=network-online.target
+#        After=network-online.target
+#        [Service]
+#        ExecStartPre=-/usr/bin/mkdir -p /opt/bin/kubelet-plugins/volume/exec/my~hostpath
+#        ExecStart=/usr/bin/curl -s -L -o /opt/bin/kubelet-plugins/volume/exec/my~hostpath/hostpath -z /opt/bin/kubelet-plugins/volume/exec/my~hostpath/hostpath https://github.com/kayrus/scripts/raw/master/hostpath
+#        ExecStartPost=/usr/bin/chmod +x /opt/bin/kubelet-plugins/volume/exec/my~hostpath/hostpath
+#        RemainAfterExit=yes
+#        Type=oneshot
     - name: systemd-networkd.service
       command: restart
     - name: etcd2.service
