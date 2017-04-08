@@ -489,6 +489,7 @@ coreos:
           --api_servers=http://127.0.0.1:8080 \
           --register-node=true \
           --register-schedulable=true \
+          --node-labels=kubernetes.io/role=master \
           --allow-privileged=true \
           --pod-manifest-path=/etc/kubernetes/manifests \
           --hostname-override=%H \
