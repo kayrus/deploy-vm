@@ -260,14 +260,14 @@ IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
 IMG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
 SIG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2.sig"
 GPG_PUB_KEY="https://coreos.com/security/image-signing-key/CoreOS_Image_Signing_Key.asc"
-GPG_PUB_KEY_ID="07F23A2F63D6D4A17F552EF348F9B96A2E16137F"
+#GPG_PUB_KEY_ID="07F23A2F63D6D4A17F552EF348F9B96A2E16137F"
 
 set +e
 if gpg --version > /dev/null 2>&1; then
   GPG=true
-  if ! gpg --list-sigs $GPG_PUB_KEY_ID > /dev/null; then
-    wget -q -O - $GPG_PUB_KEY | gpg --import --keyid-format LONG || { GPG=false && print_red "Warning: can not import GPG public key"; }
-  fi
+  #if ! gpg --list-sigs $GPG_PUB_KEY_ID > /dev/null; then
+    wget -q -O - "$GPG_PUB_KEY" | gpg --import --keyid-format LONG || { GPG=false && print_red "Warning: can not import GPG public key"; }
+  #fi
 else
   GPG=false
   print_red "Warning: please install GPG to verify CoreOS images' signatures"
@@ -312,7 +312,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
          s#%FIRST_HOST%#$FIRST_HOST#g" "$USER_DATA_TEMPLATE" > "$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR/user_data"
     make_configdrive
   else
-    print_green "'$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR' directory exists, usigng existing data"
+    print_green "'$IMG_PATH/$VM_HOSTNAME/$OPENSTACK_DIR' directory exists, using existing data"
     make_configdrive
   fi
 
