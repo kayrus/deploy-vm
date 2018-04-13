@@ -227,11 +227,11 @@ runcmd:
   ubuntu)
     BOOT_HOOK="runcmd:
   - service networking restart"
-    handle_channel_release xenial current
+    handle_channel_release bionic current
     # extra size for images
     IMG_SIZE="10G"
     IMG_NAME="${CHANNEL}-server-cloudimg-amd64.qcow2"
-    if [ "$CHANNEL" = "yakkety" ]; then
+    if [ "$CHANNEL" != "trusty" ] && [ "$CHANNEL" != "xenial" ]; then
       IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64.img"
     else
       IMG_URL="https://cloud-images.ubuntu.com/daily/server/${CHANNEL}/${RELEASE}/${CHANNEL}-server-cloudimg-amd64-disk1.img"
