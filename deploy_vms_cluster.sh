@@ -21,6 +21,8 @@ Options:
                         * freebsd
     -c|--channel        CHANNEL
                         channel name
+    -n|--name           CLUSTER_NAME
+                        VM cluster name                       [default: OS_NAME]
     -r|--release        RELEASE
                         OS release
     -s|--size           CLUSTER_SIZE
@@ -124,6 +126,9 @@ while [ $# -ge 1 ]; do
       shift 2 ;;
     -c|--channel)
       OPTVAL_CHANNEL="$2"
+      shift 2 ;;
+    -n|--name)
+      OPTVAL_CLUSTER_NAME="$2"
       shift 2 ;;
     -r|--release)
       OPTVAL_RELEASE="$2"
@@ -312,8 +317,9 @@ runcmd:
 esac
 
 SSH_USER=${SSH_USER:-$OS_NAME}
+CLUSTER_NAME=${OPTVAL_CLUSTER_NAME:-$OS_NAME}
 
-virsh list --all --name | grep -q "^${OS_NAME}1$" && { print_red "'${OS_NAME}1' VM already exists"; exit 1; }
+virsh list --all --name | grep -q "^${CLUSTER_NAME}1$" && { print_red "'${CLUSTER_NAME}1' VM already exists"; exit 1; }
 
 : ${CLUSTER_SIZE:=1}
 if [ -n "$OPTVAL_CLUSTER_SIZE" ]; then
@@ -439,7 +445,7 @@ ${BOOT_HOOK}
 "
 
 for SEQ in $(seq 1 $CLUSTER_SIZE); do
-  VM_HOSTNAME="${OS_NAME}${SEQ}"
+  VM_HOSTNAME="${CLUSTER_NAME}${SEQ}"
   if [ -z $FIRST_HOST ]; then
     FIRST_HOST=$VM_HOSTNAME
   fi
@@ -511,10 +517,19 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
 done
 
 
+if [ "${OS_NAME}" != "${CLUSTER_NAME}" ] && grep -e '^Host '"${OS_NAME}"'?$' "${CDIR}/dot_ssh_config" >/dev/null 2>/dev/null; then
+  printf "Add the following lines to your ~/.ssh/config to make SSH connection work with your VM cluster\n'\n"
+  echo "Host ${CLUSTER_NAME}?"
+  sed -n '/Host '"${OS_NAME}"'?$/{n;p;n;p;n;p;n;p;n;p}' "${CDIR}/dot_ssh_config"
+  printf "'\n"
+
+  bash -c 'read -n1 -r -p "Press any key to continue..." key && echo'
+fi
+
 if [ "x${SKIP_SSH_CHECK}" = "x" ]; then
   MAX_SSH_TRIES=50
   for SEQ in $(seq 1 $CLUSTER_SIZE); do
-    VM_HOSTNAME="${OS_NAME}${SEQ}"
+    VM_HOSTNAME="${CLUSTER_NAME}${SEQ}"
     TRY=0
     while true; do
       TRY=$((TRY+1))
