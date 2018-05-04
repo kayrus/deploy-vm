@@ -184,10 +184,10 @@ runcmd:
   - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
 runcmd:
   - systemctl restart NetworkManager"
-    handle_channel_release 23 20160223
+    handle_channel_release 27 20180419.0
     SSH_USER=fedora
     IMG_NAME="CentOS-Atomic-Host-${RELEASE}-GenericCloud.qcow2"
-    IMG_URL="https://download.fedoraproject.org/pub/alt/atomic/stable/Cloud-Images/x86_64/Images/Fedora-Cloud-Atomic-${CHANNEL}-${RELEASE}.x86_64.qcow2"
+    IMG_URL="https://download.fedoraproject.org/pub/alt/atomic/stable/Fedora-Atomic-${CHANNEL}-${RELEASE}/CloudImages/x86_64/images/Fedora-Atomic-${CHANNEL}-${RELEASE}.x86_64.qcow2"
     ;;
   centos)
     BOOT_HOOK="bootcmd:
@@ -203,9 +203,9 @@ runcmd:
   - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
 runcmd:
   - service network restart"
-    handle_channel_release 23 20151030
+    handle_channel_release 27 1.6
     IMG_NAME="Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
-    IMG_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/${CHANNEL}/Cloud/x86_64/Images/Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
+    IMG_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/${CHANNEL}/CloudImages/x86_64/images/Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
     ;;
   opensuse)
     BOOT_HOOK="bootcmd:
