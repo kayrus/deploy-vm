@@ -32,6 +32,33 @@ export LIBVIRT_DEFAULT_URI=qemu:///system
 
 ## Configure local resolver to use libvirt's dnsmasq
 
+* Ubuntu 18.04 (`systemd-resolved` [(c)](https://wiki.ubuntu.com/SecurityTeam/TestingEnvironment#Tell_systemd-resolved_to_use_libvirt.27s_dnsmasq_for_VMs_only_.2817.04.2B-.29))
+
+The setting below is not preserved on reboot:
+
+```sh
+systemd-resolve --set-dns=192.168.122.1 --set-domain=vm --interface=virbr0
+```
+
+Verify:
+
+```sh
+systemd-resolve --status virbr0
+```
+
+Add the following section into libvirt default network (`sudo virsh net-edit default`):
+
+```xml
+  <domain name='vm' localOnly='yes'/>
+```
+
+And restart the network:
+
+```sh
+sudo virsh net-destroy default
+sudo virsh net-start default
+```
+
 * Ubuntu/Debian
 
 ```sh
@@ -50,8 +77,8 @@ sudo systemctl restart NetworkManager
 ## Add current user into `libvirt` group (will allow you to run scripts without `sudo`)
 
 ```sh
-sudo usermod -aG libvirtd $USER # for Debian/Ubuntu
-sudo usermod -aG libvirt $USER # for CentOS/Fedora
+sudo usermod -aG libvirtd $USER # for Debian/Ubuntu14.04/Ubuntu16.04
+sudo usermod -aG libvirt $USER # for CentOS/Fedora/Ubuntu18.04
 ```
 
 **NOTE**: You have to relogin into your UI environment to apply these changes.
