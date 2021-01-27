@@ -141,13 +141,13 @@ cat dot_ssh_config >> ~/.ssh/config
 chmod 600 ~/.ssh/config
 ```
 
-## Run CoreOS VMs cluster of 3 nodes
+## Run Flatcar VMs cluster of 3 nodes
 
 ```sh
-./deploy_coreos_cluster.sh -s 3
+./deploy_flatcar_cluster.sh -s 3
 ```
 
-`user_data` file works only for CoreOS and contains a template for CoreOS configuration and it configures `etcd2` and `fleet`.
+`user_data` file works only for Flatcar and contains a template for Flatcar configuration and it configures `etcd2` and `fleet`.
 
 ## Try out Tectonic
 
@@ -249,5 +249,5 @@ which causes `internal error: cannot determine default video type` error message
 ## Completely destroy and remove all related VMs cluster data
 
 ```sh
-./remove_cluster.sh coreos
+./remove_cluster.sh flatcar
 ```

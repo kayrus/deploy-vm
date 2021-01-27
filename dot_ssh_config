@@ -1,8 +1,8 @@
-Host coreos?
+Host flatcar?
   User core
   IdentityFile ~/.ssh/id_rsa
   StrictHostKeyChecking no
-  UserKnownHostsFile ~/.ssh/known_hosts.coreos
+  UserKnownHostsFile ~/.ssh/known_hosts.flatcar
   # used by fleet
   ForwardAgent yes
   UseRoaming no

@@ -165,8 +165,8 @@ CPUs_min=0
 OS_NAME=$OPTVAL_OS_NAME
 
 case "$OS_NAME" in
-  coreos)
-    echo "Use ./deploy_coreos_cluster.sh script"
+  flatcar)
+    echo "Use ./deploy_flatcar_cluster.sh script"
     exit 1
     ;;
   atomic-centos)
@@ -194,18 +194,18 @@ runcmd:
   - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
 runcmd:
   - service network restart"
-    handle_channel_release '' 7
+    handle_channel_release 8.3.2011-20201204.2 8
     IMG_NAME="CentOS-${RELEASE}-x86_64-GenericCloud.qcow2"
-    IMG_URL="http://cloud.centos.org/centos/${RELEASE}/images/CentOS-${RELEASE}-x86_64-GenericCloud.qcow2.xz"
+    IMG_URL="https://cloud.centos.org/centos/${RELEASE}/x86_64/images/CentOS-${RELEASE}-GenericCloud-${CHANNEL}.x86_64.qcow2"
     ;;
   fedora)
     BOOT_HOOK="bootcmd:
   - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
 runcmd:
   - service network restart"
-    handle_channel_release 27 1.6
+    handle_channel_release 33 1.2
     IMG_NAME="Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
-    IMG_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/${CHANNEL}/CloudImages/x86_64/images/Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
+    IMG_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/${CHANNEL}/Cloud/x86_64/images/Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
     ;;
   opensuse)
     BOOT_HOOK="bootcmd:
@@ -220,14 +220,14 @@ runcmd:
   debian)
     BOOT_HOOK="runcmd:
   - service networking restart"
-    handle_channel_release 8.5.0 current
+    handle_channel_release 10 current
     IMG_NAME="debian-${CHANNEL}-openstack-amd64.qcow2"
     IMG_URL="http://cdimage.debian.org/cdimage/openstack/${RELEASE}/debian-${CHANNEL}-openstack-amd64.qcow2"
     ;;
   ubuntu)
     BOOT_HOOK="runcmd:
   - service networking restart"
-    handle_channel_release bionic current
+    handle_channel_release focal current
     # extra size for images
     IMG_SIZE="10G"
     IMG_NAME="${CHANNEL}-server-cloudimg-amd64.qcow2"

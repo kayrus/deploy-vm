@@ -11,7 +11,7 @@ print_green() {
 usage() {
   echo "Usage: $0 %os_name% [%vms_prefix%]"
   echo "  Supported OS:"
-  print_green "    * coreos [k8s]"
+  print_green "    * flatcar [k8s]"
   print_green "    * atomic-centos"
   print_green "    * atomic-fedora"
   print_green "    * clearlinux"
@@ -44,7 +44,7 @@ if [ -z $1 ]; then
 fi
 
 case "$1" in
-  coreos);;
+  flatcar);;
   atomic-centos);;
   atomic-fedora);;
   clearlinux)DISK_FORMAT="raw";;

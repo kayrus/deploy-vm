@@ -9,7 +9,7 @@ Options:
     -c|--channel        CHANNEL
                         channel name (stable/beta/alpha)           [default: stable]
     -r|--release        RELEASE
-                        CoreOS release                             [default: current]
+                        Flatcar release                            [default: current]
     -s|--size           CLUSTER_SIZE
                         Amount of virtual machines in a cluster.   [default: 2]
     -p|--pub-key        PUBLIC_KEY
@@ -28,7 +28,7 @@ Options:
     -v|--verbose        Make verbose
     -h|--help           This help message
 
-This script is a wrapper around libvirt for starting a cluster of CoreOS virtual
+This script is a wrapper around libvirt for starting a cluster of Flatcar virtual
 machines.
 "
 }
@@ -171,7 +171,7 @@ done
 trap - EXIT
 trap
 
-OS_NAME="coreos"
+OS_NAME="flatcar"
 PREFIX="k8s"
 MASTER_PREFIX="${PREFIX}-master"
 NODE_PREFIX="${PREFIX}-node"
@@ -321,10 +321,10 @@ SERVICE_IP_RANGE=10.101.0.0/24
 K8S_SERVICE_IP=10.101.0.1
 DNS_SERVICE_IP=10.101.0.254
 K8S_DOMAIN=skydns.local
-IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
-IMG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
-SIG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2.sig"
-GPG_PUB_KEY="https://coreos.com/security/image-signing-key/CoreOS_Image_Signing_Key.asc"
+IMG_NAME="flatcar_${CHANNEL}_${RELEASE}_qemu_image.img"
+IMG_URL="https://${CHANNEL}.release.flatcar-linux.net/amd64-usr/${RELEASE}/flatcar_production_qemu_image.img.bz2"
+SIG_URL="https://${CHANNEL}.release.flatcar-linux.net/amd64-usr/${RELEASE}/flatcar_production_qemu_image.img.bz2.sig"
+GPG_PUB_KEY="https://www.flatcar-linux.org/security/image-signing-key/Flatcar_Image_Signing_Key.asc"
 GPG_PUB_KEY_ID="07F23A2F63D6D4A17F552EF348F9B96A2E16137F"
 
 set +e
@@ -335,7 +335,7 @@ if gpg --version > /dev/null 2>&1; then
   fi
 else
   GPG=false
-  print_red "Warning: please install GPG to verify CoreOS images' signatures"
+  print_red "Warning: please install GPG to verify Flatcar images' signatures"
 fi
 set -e
 
@@ -370,7 +370,7 @@ fi
 for SEQ in $(seq 1 $CLUSTER_SIZE); do
   if [ "$SEQ" = "1" ]; then
     VM_HOSTNAME=$MASTER_PREFIX
-    COREOS_MASTER_HOSTNAME=$VM_HOSTNAME
+    FLATCAR_MASTER_HOSTNAME=$VM_HOSTNAME
     USER_DATA_TEMPLATE=$MASTER_USER_DATA_TEMPLATE
   else
     NODE_SEQ=$[SEQ-1]
@@ -384,7 +384,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
          s#%HOSTNAME%#$VM_HOSTNAME#g;\
          s#%DISCOVERY%#$ETCD_DISCOVERY#g;\
          s#%RANDOM_PASS%#$RANDOM_PASS#g;\
-         s#%MASTER_HOST%#$COREOS_MASTER_HOSTNAME#g;\
+         s#%MASTER_HOST%#$FLATCAR_MASTER_HOSTNAME#g;\
          s#%K8S_RELEASE%#$K8S_RELEASE#g;\
          s#%K8S_IMAGE%#$K8S_IMAGE#g;\
          s#%FLANNEL_TYPE%#$FLANNEL_TYPE#g;\
@@ -504,4 +504,4 @@ if [ "x${SKIP_SSH_CHECK}" = "x" ]; then
   print_green "Kubernetes cluster is up and running..."
 fi
 
-print_green "Use following command to connect to your cluster: 'ssh -i \"$PRIV_KEY_PATH\" core@$COREOS_MASTER_HOSTNAME'"
+print_green "Use following command to connect to your cluster: 'ssh -i \"$PRIV_KEY_PATH\" core@$FLATCAR_MASTER_HOSTNAME'"

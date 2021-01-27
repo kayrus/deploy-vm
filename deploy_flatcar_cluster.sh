@@ -9,7 +9,7 @@ Options:
     -c|--channel        CHANNEL
                         channel name (stable/beta/alpha)           [default: stable]
     -r|--release        RELEASE
-                        CoreOS release                             [default: current]
+                        Flatcar release                            [default: current]
     -s|--size           CLUSTER_SIZE
                         Amount of virtual machines in a cluster.   [default: 1]
     -p|--pub-key        PUBLIC_KEY
@@ -24,7 +24,7 @@ Options:
     -v|--verbose        Make verbose
     -h|--help           This help message
 
-This script is a wrapper around libvirt for starting a cluster of CoreOS virtual
+This script is a wrapper around libvirt for starting a cluster of Flatcar virtual
 machines.
 "
 }
@@ -161,7 +161,7 @@ done
 trap - EXIT
 trap
 
-OS_NAME="coreos"
+OS_NAME="flatcar"
 SSH_USER="core"
 
 virsh list --all --name | grep -q "^${OS_NAME}1$" && { print_red "'${OS_NAME}1' VM already exists"; exit 1; }
@@ -256,10 +256,10 @@ if [ -n "$OPTVAL_CPU" ]; then
   CPUs=$OPTVAL_CPU
 fi
 
-IMG_NAME="coreos_${CHANNEL}_${RELEASE}_qemu_image.img"
-IMG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2"
-SIG_URL="https://${CHANNEL}.release.core-os.net/amd64-usr/${RELEASE}/coreos_production_qemu_image.img.bz2.sig"
-GPG_PUB_KEY="https://coreos.com/security/image-signing-key/CoreOS_Image_Signing_Key.asc"
+IMG_NAME="flatcar_${CHANNEL}_${RELEASE}_qemu_image.img"
+IMG_URL="https://${CHANNEL}.release.flatcar-linux.net/amd64-usr/${RELEASE}/flatcar_production_qemu_image.img.bz2"
+SIG_URL="https://${CHANNEL}.release.flatcar-linux.net/amd64-usr/${RELEASE}/flatcar_production_qemu_image.img.bz2.sig"
+GPG_PUB_KEY="https://www.flatcar-linux.org/security/image-signing-key/Flatcar_Image_Signing_Key.asc"
 #GPG_PUB_KEY_ID="07F23A2F63D6D4A17F552EF348F9B96A2E16137F"
 
 set +e
@@ -270,7 +270,7 @@ if gpg --version > /dev/null 2>&1; then
   #fi
 else
   GPG=false
-  print_red "Warning: please install GPG to verify CoreOS images' signatures"
+  print_red "Warning: please install GPG to verify Flatcar images' signatures"
 fi
 set -e
 
