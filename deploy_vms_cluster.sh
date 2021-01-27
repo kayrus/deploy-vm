@@ -246,7 +246,7 @@ runcmd:
     IMG_URL="https://cloud-images.ubuntu.com/ubuntu-core/${CHANNEL}/core/stable/${RELEASE}/core-stable-amd64-disk1.img"
     ;;
   freebsd)
-    handle_channel_release 10.3 RELEASE
+    handle_channel_release 12.1 RELEASE
     #SKIP_CLOUD_CONFIG=true
     #NETWORK_DEVICE="e1000"
     IMG_NAME="FreeBSD-${CHANNEL}-${RELEASE}-amd64.qcow2"
@@ -461,7 +461,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
   fi
 
   if [ ! -f "$IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT}" ]; then
-    qemu-img create -f $DISK_FORMAT -b "$IMG_PATH/$IMG_NAME" "$IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT}" $IMG_SIZE || \
+    qemu-img create -f $DISK_FORMAT -F qcow2 -b "$IMG_PATH/$IMG_NAME" "$IMG_PATH/${VM_HOSTNAME}.${DISK_FORMAT}" $IMG_SIZE || \
       { print_red "Failed to create ${VM_HOSTNAME}.${DISK_FORMAT} volume image" && exit 1; }
     virsh pool-refresh $OS_NAME
   fi

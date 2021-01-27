@@ -337,7 +337,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
   fi
 
   if [ ! -f "$IMG_PATH/${VM_HOSTNAME}.qcow2" ]; then
-    qemu-img create -f qcow2 -b "$IMG_PATH/$IMG_NAME" "$IMG_PATH/${VM_HOSTNAME}.qcow2" || \
+    qemu-img create -f qcow2 -F qcow2 -b "$IMG_PATH/$IMG_NAME" "$IMG_PATH/${VM_HOSTNAME}.qcow2" || \
       { print_red "Failed to create ${VM_HOSTNAME}.qcow2 volume image" && exit 1; }
     virsh pool-refresh $OS_NAME
   fi
