@@ -349,7 +349,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
     --ram $RAM \
     --vcpus $CPUs \
     --os-type=linux \
-    --os-variant=virtio26 \
+    --os-variant=fedora10 \
     --disk path="$IMG_PATH/$VM_HOSTNAME.qcow2",format=qcow2,bus=virtio \
     $CONFIG_DRIVE \
     --vnc \

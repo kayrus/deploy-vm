@@ -200,9 +200,7 @@ runcmd:
     ;;
   fedora)
     BOOT_HOOK="bootcmd:
-  - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network
-runcmd:
-  - service network restart"
+  - echo 'DHCP_HOSTNAME=\${HOSTNAME}' >> /etc/sysconfig/network"
     handle_channel_release 33 1.2
     IMG_NAME="Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
     IMG_URL="https://download.fedoraproject.org/pub/fedora/linux/releases/${CHANNEL}/Cloud/x86_64/images/Fedora-Cloud-Base-${CHANNEL}-${RELEASE}.x86_64.qcow2"
@@ -501,7 +499,7 @@ for SEQ in $(seq 1 $CLUSTER_SIZE); do
     --ram $RAM \
     --vcpus $CPUs \
     --os-type=linux \
-    --os-variant=virtio26 \
+    --os-variant=fedora10 \
     --network network=default,model=${NETWORK_DEVICE} \
     --disk path="$IMG_PATH/$VM_HOSTNAME.${DISK_FORMAT}",format=${DISK_FORMAT},bus=$DISK_BUS \
     $CC_DISK \
